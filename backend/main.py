@@ -24,10 +24,12 @@ settings = get_settings()
 
 # 配置 CORS 中间件
 origins = settings.cors_origins.split(",") if settings.cors_origins != "*" else ["*"]
+allow_all = "*" in origins
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
+    allow_credentials=not allow_all, # Should be False if using "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )
