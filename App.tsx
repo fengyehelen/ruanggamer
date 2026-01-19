@@ -1,0 +1,417 @@
+
+import React, { useState, useEffect } from 'react';
+import { HashRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Language, Platform, User, SortOption, Activity, Admin, SystemConfig, BankAccount, Transaction } from './types';
+import { TRANSLATIONS } from './constants';
+import { api } from './services/api';
+import Layout from './components/Layout';
+import AdminApp from './components/AdminApp';
+import {
+    HomeView, TaskDetailView, MyTasksView, ProfileView, ReferralView,
+    ActivityDetailView, UserLogin, MailboxView, StaticPageView, TransactionHistoryView, TasksView, RewardPopup
+} from './components/UserApp';
+
+const App: React.FC = () => {
+    const [user, setUser] = useState<User | null>(null);
+    const [platforms, setPlatforms] = useState<Platform[]>([]);
+    const [activities, setActivities] = useState<Activity[]>([]);
+    // Hardcoded to ID for RuangGamer
+    const lang: Language = 'id';
+    const [sort, setSort] = useState<SortOption>(SortOption.NEWEST);
+    const [hasUnreadTx, setHasUnreadTx] = useState(false);
+    const [rewardPopupTx, setRewardPopupTx] = useState<Transaction | null>(null);
+
+    // System Config State
+    const [config, setConfig] = useState<SystemConfig>({
+        initialBalance: {}, minWithdrawAmount: {}, telegramLinks: {}, hypeLevel: 5, helpContent: '', aboutContent: '', vipConfig: {}
+    });
+
+    // Load Initial Data from MockDB (Client Side)
+    useEffect(() => {
+        api.getInitialData().then(data => {
+            setPlatforms(data.platforms || []);
+            setActivities(data.activities || []);
+        }).catch(err => console.error("Failed to load data", err));
+
+        api.getConfig().then(c => {
+            if (c) setConfig(c);
+        }).catch(err => console.error("Failed to load config", err));
+
+        const savedUserId = localStorage.getItem('ruanggamer_session');
+        if (savedUserId) {
+            api.getUser(savedUserId).then(u => {
+                if (u) {
+                    setUser(u);
+                    checkUnread(u);
+                    // If admin, load all users
+                    if (u.role === 'admin') {
+                        api.getAllUsers().then(data => setAllUsers(data.users));
+                    }
+                }
+            });
+        }
+
+    }, []);
+
+    const checkUnread = (u: User) => {
+        // 1. Check for unread transactions indicator (red dot)
+        const lastReadTime = localStorage.getItem('last_tx_read_time');
+        if (u.transactions && u.transactions.length > 0) {
+            // Sort to get latest
+            const latestTx = u.transactions[0];
+
+            if (!lastReadTime) {
+                setHasUnreadTx(true);
+            } else {
+                const latestTxDate = new Date(latestTx.date).getTime();
+                const lastReadDate = new Date(lastReadTime).getTime();
+                if (latestTxDate > lastReadDate) {
+                    setHasUnreadTx(true);
+                } else {
+                    setHasUnreadTx(false);
+                }
+            }
+
+            // 2. Check for POPUP Reward (Req 4)
+            // Logic: If latest TX is positive (income) and hasn't been shown in popup yet
+            const lastPopupId = localStorage.getItem('last_popup_tx_id');
+            // Check if latest transaction is income and is different from last popup
+            if (latestTx.amount > 0 && latestTx.id !== lastPopupId) {
+                setRewardPopupTx(latestTx);
+            }
+
+        } else {
+            setHasUnreadTx(false);
+        }
+    };
+
+    const handleCloseRewardPopup = () => {
+        if (rewardPopupTx) {
+            localStorage.setItem('last_popup_tx_id', rewardPopupTx.id);
+            setRewardPopupTx(null);
+        }
+    };
+
+    const handleClearUnreadTx = () => {
+        setHasUnreadTx(false);
+        localStorage.setItem('last_tx_read_time', new Date().toISOString());
+    };
+
+    const handleAuth = async (email: string, pass: string, isReg: boolean, invite?: string): Promise<string | null> => {
+        try {
+            let data;
+            if (isReg) {
+                data = await api.register(email, pass, '9527', invite);
+            } else {
+                data = await api.login(email, pass);
+            }
+
+            if (data && data.user) {
+                setUser(data.user);
+                checkUnread(data.user);
+                localStorage.setItem('ruanggamer_session', data.user.id);
+
+                // If admin, load all users
+                if (data.user.role === 'admin') {
+                    api.getAllUsers().then(res => setAllUsers(res.users));
+                }
+                return null;
+            }
+
+            return "Unknown error";
+        } catch (e: any) {
+            try {
+                const errObj = JSON.parse(e.message);
+                return errObj.error || "Auth Failed";
+            } catch {
+                return "Authentication Failed";
+            }
+        }
+    };
+
+    const handleLogout = () => {
+        setUser(null);
+        localStorage.removeItem('ruanggamer_session');
+    };
+
+    const handleStartTask = async (platform: Platform) => {
+        if (!user) {
+            window.location.hash = '#/login';
+            return;
+        }
+        try {
+            await api.startTask(user.id, platform.id);
+            const updatedUser = await api.getUser(user.id);
+            if (updatedUser) setUser(updatedUser);
+
+            // Refresh users if admin
+            if (user?.role === 'admin') {
+                api.getAllUsers().then(res => setAllUsers(res.users));
+            }
+
+            let url = platform.downloadLink;
+
+            if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+                url = 'https://' + url;
+            }
+            window.open(url, '_blank');
+
+        } catch (e: any) {
+            // Req 5 Fix: If task already started, still allow user to open link
+            if (e.message && e.message.includes("already started")) {
+                let url = platform.downloadLink;
+                if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url;
+                }
+                window.open(url, '_blank');
+
+            } else {
+                alert("Gagal mengambil misi: " + e.message);
+            }
+        }
+    };
+
+
+    const handleBindPhone = async (phone: string) => {
+        if (!user) return;
+        try {
+            const updatedUser = await api.bindPhone(user.id, phone);
+            setUser(updatedUser);
+            alert("Phone Bound Successfully!");
+        } catch (e: any) {
+            alert("Gagal bind HP: " + e.message);
+        }
+    };
+
+    const handleBindCard = async (account: Omit<BankAccount, 'id'>) => {
+        if (!user) return;
+        try {
+            const updatedUser = await api.bindBank(user.id, account);
+            setUser(updatedUser);
+            alert("Bank Account Bound Successfully!");
+        } catch (e: any) {
+            alert("Gagal bind akun: " + e.message);
+        }
+    };
+
+    const handleWithdraw = async (amount: number, accountId: string) => {
+        if (!user) return;
+        try {
+            const updatedUser = await api.withdraw(user.id, amount, accountId);
+            setUser(updatedUser);
+            checkUnread(updatedUser);
+            alert("Penarikan Berhasil Diajukan!");
+        } catch (e: any) {
+            alert("Gagal withdraw: " + e.message);
+        }
+    };
+
+    // NEW: Like Task Logic
+    const handleLikeTask = async (platformId: string) => {
+        if (!user) return window.location.hash = '#/login';
+        try {
+            const updatedUser = await api.likeTask(user.id, platformId);
+            setUser(updatedUser);
+            // Optimistically update platforms likes for UI immediately or re-fetch
+            const updatedPlatforms = [...platforms];
+            const idx = updatedPlatforms.findIndex(p => p.id === platformId);
+            if (idx !== -1) {
+                updatedPlatforms[idx] = { ...updatedPlatforms[idx], likes: (updatedPlatforms[idx].likes || 0) + 1 };
+                setPlatforms(updatedPlatforms);
+            }
+        } catch (e: any) {
+            console.error("Like failed", e);
+        }
+    };
+
+    const handleSubmitProof = async (taskId: string, imgUrl: string) => {
+        if (!user) return;
+        try {
+            await api.submitTaskProof(user.id, taskId, imgUrl);
+            const updatedUser = await api.getUser(user.id);
+            if (updatedUser) setUser(updatedUser);
+            // alert("Proof submitted successfully!");
+        } catch (e: any) {
+            alert("Failed to submit proof: " + e.message);
+        }
+    };
+
+
+    // For Admin - In this MVP we just pass empty lists or fetch specifically
+    const [admins, setAdmins] = useState<Admin[]>([]);
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+
+    const setLang = (_l: Language) => { };
+
+    return (
+        <Router>
+            {/* REWARD POPUP OVERLAY */}
+            {rewardPopupTx && (
+                <RewardPopup tx={rewardPopupTx} onClose={handleCloseRewardPopup} />
+            )}
+
+            <Routes>
+                {/* Admin Route */}
+                <Route path="/admin" element={
+                    <AdminApp
+                        users={allUsers} tasks={platforms} activities={activities} admins={admins} config={config} lang={lang}
+                        updateTaskStatus={async (userId, taskId, status) => {
+                            try {
+                                await api.auditTask(userId, taskId, status);
+                                const res = await api.getAllUsers();
+                                setAllUsers(res.users);
+                            } catch (e: any) { alert("Audit Failed: " + e.message); }
+                        }}
+                        updateUserPassword={async (userId, newPass) => {
+                            try {
+                                await api.resetUserPassword(userId, newPass);
+                                alert("Password Reset Success");
+                            } catch (e: any) { alert("Reset Failed: " + e.message); }
+                        }}
+                        sendMessage={async (userId, title, content, amount) => {
+                            try {
+                                await api.sendMessage(userId, title, content, amount);
+                                alert("Message Sent");
+                                const res = await api.getAllUsers();
+                                setAllUsers(res.users);
+                            } catch (e: any) { alert("Send failed: " + e.message); }
+                        }}
+                        addAdmin={async (username, pass, role) => {
+                            try {
+                                await api.createAdmin(username, pass, role);
+                                alert("Admin Created");
+                            } catch (e: any) { alert("Create failed: " + e.message); }
+                        }}
+
+
+                        updateConfig={async (newCfg) => {
+                            try {
+                                // Optimistic update
+                                setConfig(newCfg);
+                                await api.updateConfig(newCfg);
+                            } catch (e: any) { alert("Config update failed: " + e.message); }
+                        }}
+
+                        addTask={async (task) => {
+                            try {
+                                await api.addTask(task);
+                                const data = await api.getInitialData();
+                                setPlatforms(data.platforms);
+                            } catch (e: any) { alert("Add Task Failed: " + e.message); }
+                        }}
+
+                        editTask={async (id, updates) => {
+                            try {
+                                await api.updateTask(id, updates);
+                                const data = await api.getInitialData();
+                                setPlatforms(data.platforms);
+                            } catch (e: any) { alert("Update Task Failed: " + e.message); }
+                        }}
+
+
+                        addActivity={async (act) => {
+                            try {
+                                await api.addActivity(act);
+                                const data = await api.getInitialData();
+                                setActivities(data.activities);
+                            } catch (e: any) { alert("Add Activity Failed"); }
+                        }}
+
+                        manageContent={async (type, id, action) => {
+                            try {
+                                if (type === 'task') {
+                                    if (action === 'delete') {
+                                        if (!confirm('Delete task?')) return;
+                                        await api.deleteTask(id);
+                                    }
+                                    else if (action === 'toggle') {
+                                        const t = platforms.find(p => p.id === id);
+                                        if (t) await api.updateTask(id, { status: t.status === 'online' ? 'offline' : 'online' });
+                                    }
+                                    else if (action === 'pin') {
+                                        const t = platforms.find(p => p.id === id);
+                                        if (t) await api.updateTask(id, { isPinned: !t.isPinned });
+                                    }
+                                    const data = await api.getInitialData();
+                                    setPlatforms(data.platforms);
+                                }
+                                else if (type === 'activity') {
+                                    if (action === 'delete') {
+                                        if (!confirm('Delete activity?')) return;
+                                        await api.deleteActivity(id);
+                                    }
+                                    else if (action === 'toggle') {
+                                        const a = activities.find(x => x.id === id);
+                                        if (a) await api.updateActivity(id, { active: !a.active });
+                                    }
+                                    else if (action === 'popup') {
+                                        const a = activities.find(x => x.id === id);
+                                        if (a) await api.updateActivity(id, { showPopup: !a.showPopup });
+                                    }
+                                    const data = await api.getInitialData();
+                                    setActivities(data.activities);
+                                }
+                            } catch (e: any) { alert("Action Failed: " + e.message); }
+                        }}
+                    />
+
+                } />
+
+                {/* Login Route */}
+                <Route path="/login" element={
+                    !user ? <UserLogin onAuth={handleAuth as any} t={TRANSLATIONS[lang]} lang={lang} /> : <Navigate to="/" />
+                } />
+
+                {/* Main App Layout - Forced 'gold' theme which is now Black/Gold */}
+                <Route element={
+                    <Layout lang={lang} setLang={setLang} theme={'gold'} telegramLink={config.telegramLinks['id']} hasUnreadMsg={false} hasUnreadTx={hasUnreadTx}>
+                        <Outlet />
+                    </Layout>
+                }>
+                    {/* Public Routes (Accessible without Login) */}
+                    <Route path="/" element={
+                        <HomeView
+                            platforms={platforms} t={TRANSLATIONS[lang]}
+                            setSort={setSort} sort={sort} lang={lang}
+                            activities={activities} user={user} config={config}
+                            onLikeTask={handleLikeTask}
+                            onQuickJoin={handleStartTask}
+                        />
+                    } />
+                    <Route path="/tasks" element={
+                        <TasksView
+                            platforms={platforms} t={TRANSLATIONS[lang]}
+                            setSort={setSort} sort={sort} lang={lang}
+                            user={user} config={config}
+                            onLikeTask={handleLikeTask}
+                            onQuickJoin={handleStartTask}
+                        />
+                    } />
+                    <Route path="/task-detail/:id" element={<TaskDetailView platforms={platforms} onStartTask={handleStartTask} t={TRANSLATIONS[lang]} lang={lang} user={user} />} />
+                    <Route path="/activity/:id" element={<ActivityDetailView activities={activities} t={TRANSLATIONS[lang]} />} />
+
+                    {/* Hybrid Route - Profile handles guest state internally */}
+                    <Route path="/profile" element={
+                        <ProfileView
+                            user={user} t={TRANSLATIONS[lang]} logout={handleLogout}
+                            lang={lang} onBindCard={handleBindCard} onWithdraw={handleWithdraw}
+                            toggleTheme={() => { }} minWithdraw={config.minWithdrawAmount['id'] || 50000}
+                            clearUnreadTx={handleClearUnreadTx} config={config}
+                            onBindPhone={handleBindPhone}
+                        />
+                    } />
+                    <Route path="/help" element={<StaticPageView title="Bantuan" content="Hubungi Admin via Telegram jika ada kendala." />} />
+                    <Route path="/about" element={<StaticPageView title="Tentang Kami" content="RuangGamer adalah platform gaming reward nomor 1 di Indonesia." />} />
+
+                    {/* Protected Routes (Redirect to Login if null) */}
+                    <Route path="/my-tasks" element={user ? <MyTasksView user={user} t={TRANSLATIONS[lang]} onSubmitProof={handleSubmitProof} lang={lang} /> : <Navigate to="/login" />} />
+                    <Route path="/referral" element={user ? <ReferralView user={user} users={[]} t={TRANSLATIONS[lang]} config={config} lang={lang} /> : <Navigate to="/login" />} />
+                    <Route path="/mailbox" element={user ? <MailboxView user={user} t={TRANSLATIONS[lang]} markAllRead={() => { }} /> : <Navigate to="/login" />} />
+                    <Route path="/transactions" element={user ? <TransactionHistoryView user={user} t={TRANSLATIONS[lang]} /> : <Navigate to="/login" />} />
+                </Route>
+            </Routes>
+        </Router>
+    );
+};
+
+export default App;
