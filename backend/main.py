@@ -3,6 +3,12 @@ RuangGamer 后端 API
 FastAPI 应用入口
 """
 
+import sys
+import os
+
+# 将当前目录添加到路径中，确保 Vercel 能找到同级模块
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
