@@ -5,11 +5,17 @@ FastAPI 应用入口
 
 import sys
 import os
+import logging
+
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # 将当前目录添加到路径中，确保 Vercel 能找到同级模块
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
@@ -40,6 +46,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """全局异常处理器，用于在 Vercel 日志中显示更多细节"""
+    error_msg = f"Unhandled exception: {str(exc)}"
+    logger.error(f"Error on {request.url.path}: {error_msg}")
+    import traceback
+    logger.error(traceback.format_exc())
+    
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal Server Error",
+            "detail": error_msg,
+            "path": request.url.path
+        },
+    )
 
 
 # 注册路由
