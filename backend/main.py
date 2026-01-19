@@ -6,8 +6,8 @@ FastAPI 应用入口
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import get_settings
-from .routers import auth, users, tasks, config, admin, activities
+from config import get_settings
+from routers import auth, users, tasks, config, admin, activities
 
 
 # 创建 FastAPI 应用
