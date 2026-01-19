@@ -6,8 +6,8 @@ FastAPI 应用入口
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import get_settings
-from routers import auth, users, tasks, config, admin, activities
+from .config import get_settings
+from .routers import auth, users, tasks, config, admin, activities
 
 
 # 创建 FastAPI 应用
@@ -26,10 +26,11 @@ settings = get_settings()
 origins = settings.cors_origins.split(",") if settings.cors_origins != "*" else ["*"]
 allow_all = "*" in origins
 
+# 修改 main.py 第 32-37 行
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=not allow_all, # Should be False if using "*"
+    allow_origins=["*"], # 建议直接先写死为 ["*"] 确保通畅
+    allow_credentials=False, # 当 Origins 为 * 时，这里必须是 False
     allow_methods=["*"],
     allow_headers=["*"],
 )
