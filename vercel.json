@@ -1,14 +1,22 @@
 {
     "version": 2,
-    "functions": {
-        "backend/main.py": {
-            "runtime": "@vercel/python"
+    "builds": [
+        {
+            "src": "backend/main.py",
+            "use": "@vercel/python"
+        },
+        {
+            "src": "package.json",
+            "use": "@vercel/static-build",
+            "config": {
+                "distDir": "dist"
+            }
         }
-    },
+    ],
     "rewrites": [
         {
             "source": "/api/(.*)",
-            "destination": "/backend/main.py"
+            "destination": "backend/main.py"
         },
         {
             "source": "/(.*)",
