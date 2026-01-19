@@ -2,7 +2,9 @@
 import { User, Platform, Activity, UserTask, SystemConfig, BankAccount } from '../types';
 
 // 后端 API 基础地址
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const API_BASE = window.location.hostname === 'localhost'
+    ? 'http://localhost:8000/api'
+    : '/api';
 
 /**
  * HTTP 请求辅助函数
