@@ -157,6 +157,9 @@ const App: React.FC = () => {
                 api.getAllUsers().then(res => setAllUsers(res.users));
             }
 
+            // Req 1: First time participation popup
+            alert("Anda telah berpartisipasi dalam misi ini. Sistem akan segera mengalihkan Anda ke URL tujuan. Silakan kembali ke RuangGamer untuk mengambil hadiah setelah menyelesaikan misi.");
+
             let url = platform.downloadLink;
 
             if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
@@ -165,9 +168,9 @@ const App: React.FC = () => {
             window.open(url, '_blank');
 
         } catch (e: any) {
-            // Req: If task already started, show alert but still allow user to open link
+            // Req 2: Duplicate participation popup
             if (e.message && e.message.includes("already started")) {
-                alert("Anda telah mengikuti aktivitas ini, silakan periksa di daftar tugas");
+                alert("Anda telah mengikuti misi ini, silakan periksa progresnya di daftar misi.");
 
                 let url = platform.downloadLink;
                 if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
