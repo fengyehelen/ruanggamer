@@ -457,7 +457,7 @@ export const TaskDetailView: React.FC<any> = ({ platforms, onStartTask, t, lang,
                     {/* Replaced Rules section with Main Sekarang button */}
                     <div className="mt-8 mb-8">
                         <button onClick={() => onStartTask(platform)} className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 text-slate-900 font-bold py-4 rounded-xl shadow-lg shadow-amber-900/40 hover:brightness-110 transition-all flex items-center justify-center gap-2 text-lg uppercase tracking-wide">
-                            <PlayCircle size={24} /> Main Sekarang
+                            <PlayCircle size={24} /> Ikut Sekarang
                         </button>
                     </div>
                 </div>
