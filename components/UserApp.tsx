@@ -492,10 +492,14 @@ export const ActivityDetailView: React.FC<any> = ({ activities, t }) => {
     );
 };
 
-export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang }) => {
+export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clearUnreadMisi }) => {
     const navigate = useNavigate();
     const tasks = user.myTasks || [];
     const [filter, setFilter] = useState<'all' | 'ongoing' | 'completed'>('all');
+
+    useEffect(() => {
+        if (clearUnreadMisi) clearUnreadMisi();
+    }, []);
 
     // File Upload Refs and Logic (Req 1)
     const fileInputRef = useRef<HTMLInputElement>(null);

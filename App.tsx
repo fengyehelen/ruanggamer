@@ -19,6 +19,7 @@ const App: React.FC = () => {
     const lang: Language = 'id';
     const [sort, setSort] = useState<SortOption>(SortOption.NEWEST);
     const [hasUnreadTx, setHasUnreadTx] = useState(false);
+    const [hasUnreadMisi, setHasUnreadMisi] = useState(false); // NEW: For mission red dot
     const [rewardPopupTx, setRewardPopupTx] = useState<Transaction | null>(null);
 
     // System Config State
@@ -97,6 +98,10 @@ const App: React.FC = () => {
         localStorage.setItem('last_tx_read_time', new Date().toISOString());
     };
 
+    const handleClearUnreadMisi = () => {
+        setHasUnreadMisi(false);
+    };
+
     const handleAuth = async (email: string, pass: string, isReg: boolean, invite?: string): Promise<string | null> => {
         try {
             let data;
@@ -144,6 +149,9 @@ const App: React.FC = () => {
             const updatedUser = await api.getUser(user.id);
             if (updatedUser) setUser(updatedUser);
 
+            // Set unread mission red dot
+            setHasUnreadMisi(true);
+
             // Refresh users if admin
             if (user?.role === 'admin') {
                 api.getAllUsers().then(res => setAllUsers(res.users));
@@ -157,8 +165,10 @@ const App: React.FC = () => {
             window.open(url, '_blank');
 
         } catch (e: any) {
-            // Req 5 Fix: If task already started, still allow user to open link
+            // Req: If task already started, show alert but still allow user to open link
             if (e.message && e.message.includes("already started")) {
+                alert("Anda telah mengikuti aktivitas ini, silakan periksa di daftar tugas");
+
                 let url = platform.downloadLink;
                 if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
                     url = 'https://' + url;
@@ -362,9 +372,13 @@ const App: React.FC = () => {
                     !user ? <UserLogin onAuth={handleAuth as any} t={TRANSLATIONS[lang]} lang={lang} /> : <Navigate to="/" />
                 } />
 
-                {/* Main App Layout - Forced 'gold' theme which is now Black/Gold */}
                 <Route element={
-                    <Layout lang={lang} setLang={setLang} theme={'gold'} telegramLink={config.telegramLinks['id']} hasUnreadMsg={false} hasUnreadTx={hasUnreadTx}>
+                    <Layout
+                        lang={lang} setLang={setLang} theme={'gold'}
+                        telegramLink={config.telegramLinks['id']}
+                        hasUnreadMsg={false} hasUnreadTx={hasUnreadTx}
+                        hasUnreadMisi={hasUnreadMisi}
+                    >
                         <Outlet />
                     </Layout>
                 }>
@@ -404,7 +418,7 @@ const App: React.FC = () => {
                     <Route path="/about" element={<StaticPageView title="Tentang Kami" content="RuangGamer adalah platform gaming reward nomor 1 di Indonesia." />} />
 
                     {/* Protected Routes (Redirect to Login if null) */}
-                    <Route path="/my-tasks" element={user ? <MyTasksView user={user} t={TRANSLATIONS[lang]} onSubmitProof={handleSubmitProof} lang={lang} /> : <Navigate to="/login" />} />
+                    <Route path="/my-tasks" element={user ? <MyTasksView user={user} t={TRANSLATIONS[lang]} onSubmitProof={handleSubmitProof} lang={lang} clearUnreadMisi={handleClearUnreadMisi} /> : <Navigate to="/login" />} />
                     <Route path="/referral" element={user ? <ReferralView user={user} users={[]} t={TRANSLATIONS[lang]} config={config} lang={lang} /> : <Navigate to="/login" />} />
                     <Route path="/mailbox" element={user ? <MailboxView user={user} t={TRANSLATIONS[lang]} markAllRead={() => { }} /> : <Navigate to="/login" />} />
                     <Route path="/transactions" element={user ? <TransactionHistoryView user={user} t={TRANSLATIONS[lang]} /> : <Navigate to="/login" />} />
