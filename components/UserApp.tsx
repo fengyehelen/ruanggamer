@@ -56,13 +56,20 @@ const BannerCarousel: React.FC<{ activities: Activity[] }> = ({ activities }) =>
     return (
         <div className="relative w-full h-40 rounded-2xl overflow-hidden shadow-lg group border border-slate-700">
             {/* Slides */}
-            <div className="w-full h-full relative" onClick={() => navigate(`/activity/${activities[currentIndex].id}`)}>
+            <div className="w-full h-full relative bg-slate-800" onClick={() => navigate(`/activity/${activities[currentIndex].id}`)}>
+                {/* Background blurred layer for aspect ratio gaps */}
                 <img
                     src={activities[currentIndex].imageUrl}
-                    className="w-full h-full object-cover transition-opacity duration-500 ease-in-out cursor-pointer"
+                    className="absolute inset-0 w-full h-full object-cover opacity-30 blur-md scale-110"
+                    alt=""
+                />
+                {/* Main image */}
+                <img
+                    src={activities[currentIndex].imageUrl}
+                    className="relative w-full h-full object-contain transition-opacity duration-500 ease-in-out cursor-pointer z-10"
                     alt={activities[currentIndex].title}
                 />
-                <div className="absolute bottom-0 inset-x-0 bg-black/60 p-2 text-white font-bold transition-opacity duration-300" style={{ color: activities[currentIndex].titleColor }}>
+                <div className="absolute bottom-0 inset-x-0 bg-black/60 p-2 text-white font-bold transition-opacity duration-300 z-20" style={{ color: activities[currentIndex].titleColor }}>
                     {activities[currentIndex].title}
                 </div>
             </div>
@@ -331,9 +338,12 @@ export const HomeView: React.FC<any> = ({ platforms, t, setSort, sort, lang, act
 
                     return (
                         <div key={p.id} onClick={() => navigate(`/task-detail/${p.id}`)} className="relative w-full aspect-[2/1] rounded-2xl overflow-hidden shadow-2xl border border-white/10 group cursor-pointer active:scale-[0.99] transition-transform">
-                            {/* Background Image with Overlay */}
-                            <img src={p.logoUrl} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent"></div>
+                            {/* Background Image with Overlay - Optimized for any aspect ratio */}
+                            <div className="absolute inset-0 bg-slate-800">
+                                <img src={p.logoUrl} className="absolute inset-0 w-full h-full object-cover opacity-20 blur-sm" />
+                                <img src={p.logoUrl} className="absolute inset-0 w-full h-full object-contain transition-transform duration-700 group-hover:scale-105" />
+                            </div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
 
                             {/* Content */}
                             <div className="absolute inset-0 p-4 flex flex-col justify-between">
@@ -388,8 +398,8 @@ export const HomeView: React.FC<any> = ({ platforms, t, setSort, sort, lang, act
                         </div>
                     );
                 })}
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
 
@@ -407,9 +417,10 @@ export const TaskDetailView: React.FC<any> = ({ platforms, onStartTask, t, lang,
     return (
         <div className="min-h-screen bg-slate-900 pb-24">
             {/* Header Image/Nav */}
-            <div className="relative h-56 bg-slate-800">
-                <img src={platform.logoUrl} className="w-full h-full object-cover opacity-60 blur-sm" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent"></div>
+            <div className="relative h-56 bg-slate-800 overflow-hidden">
+                <img src={platform.logoUrl} className="absolute inset-0 w-full h-full object-cover opacity-30 blur-md scale-110" />
+                <img src={platform.logoUrl} className="relative w-full h-full object-contain opacity-80" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
                 <button onClick={() => navigate(-1)} className="absolute top-4 left-4 bg-slate-900/50 backdrop-blur p-2 rounded-full text-white border border-white/10"><ArrowLeft size={20} /></button>
                 <div className="absolute -bottom-10 left-6">
                     <img src={platform.logoUrl} className="w-24 h-24 rounded-2xl border-4 border-slate-900 shadow-2xl shadow-black/50 bg-slate-800" />
@@ -477,8 +488,9 @@ export const ActivityDetailView: React.FC<any> = ({ activities, t }) => {
 
     return (
         <div className="min-h-screen bg-slate-900">
-            <div className="relative h-64">
-                <img src={activity.imageUrl} className="w-full h-full object-cover" />
+            <div className="relative h-64 bg-slate-800 overflow-hidden">
+                <img src={activity.imageUrl} className="absolute inset-0 w-full h-full object-cover opacity-30 blur-md scale-110" />
+                <img src={activity.imageUrl} className="relative w-full h-full object-contain" />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent"></div>
                 <button onClick={() => navigate(-1)} className="absolute top-4 left-4 bg-slate-900/50 backdrop-blur p-2 rounded-full text-white border border-white/10"><ArrowLeft size={20} /></button>
             </div>
@@ -577,7 +589,7 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
                     <div key={task.id} onClick={() => navigate(`/task-detail/${task.platformId}`)} className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg cursor-pointer active:scale-[0.98] transition-transform">
                         <div className="flex justify-between items-start mb-4">
                             <div className="flex gap-3">
-                                <img src={task.logoUrl} className="w-12 h-12 rounded-lg bg-slate-700 object-cover" />
+                                <img src={task.logoUrl} className="w-12 h-12 rounded-lg bg-slate-700 object-contain" />
                                 <div>
                                     <h4 className="font-bold text-white">{task.platformName}</h4>
                                     <p className="text-xs text-slate-500">{new Date(task.startTime).toLocaleDateString()}</p>
