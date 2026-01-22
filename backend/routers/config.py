@@ -108,35 +108,25 @@ async def update_config(config: SystemConfig, db: Client = Depends(get_db)):
     更新系统配置
     接收完整配置对象，更新对应的 key-value
     """
-    # 准备要更新的数据
-    updates = [
-        {"key": "initial_balance", "value": config.initial_balance},
-        {"key": "min_withdraw_amount", "value": config.min_withdraw_amount},
-        {"key": "telegram_links", "value": config.telegram_links},
-        {"key": "hype_level", "value": config.hype_level},
-        {"key": "help_content", "value": config.help_content},
-        {"key": "about_content", "value": config.about_content},
-        {"key": "vip_config", "value": list(config.vip_config.values())[0] if config.vip_config else []} # FIXME: 简单处理，假设 vip_config 结构
-    ]
+    # 将模型转换为字典以确保所有字段（包括嵌套的 Pydantic 模型）都是可序列化的
+    # 使用 by_alias=True 保持与前端期望的字段名（驼峰式）一致
+    config_dict = config.model_dump(by_alias=True)
     
-    # Check vip_config structure again. 
-    # Frontend sends: vipConfig: { "id": [ {level, threshold, reward} ] }
-    # DB expects JSON.
-    # Allow raw dict update for vip_config
-    
+    # 获取各个配置项的值
     updates = [
-        {"key": "initial_balance", "value": config.initial_balance},
-        {"key": "min_withdraw_amount", "value": config.min_withdraw_amount},
-        {"key": "telegram_links", "value": config.telegram_links},
-        {"key": "customer_service_links", "value": config.customer_service_links},
-        {"key": "hype_level", "value": config.hype_level},
-        {"key": "help_content", "value": config.help_content},
-        {"key": "about_content", "value": config.about_content},
-        {"key": "vip_config", "value": config.vip_config}
+        {"key": "initial_balance", "value": config_dict.get("initialBalance") or {}},
+        {"key": "min_withdraw_amount", "value": config_dict.get("minWithdrawAmount") or {}},
+        {"key": "telegram_links", "value": config_dict.get("telegramLinks") or {}},
+        {"key": "customer_service_links", "value": config_dict.get("customerServiceLinks") or {}},
+        {"key": "hype_level", "value": config_dict.get("hypeLevel") or 5},
+        {"key": "help_content", "value": config_dict.get("helpContent") or ""},
+        {"key": "about_content", "value": config_dict.get("aboutContent") or ""},
+        {"key": "vip_config", "value": config_dict.get("vipConfig") or {}}
     ]
 
     for item in updates:
-        # Upsert
+        # 使用 upsert 更新或插入配置项
         db.table("system_config").upsert(item, on_conflict="key").execute()
         
     return config
+
