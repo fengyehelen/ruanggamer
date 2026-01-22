@@ -225,7 +225,18 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     const handleVipConfigChange = (index: number, field: 'threshold' | 'reward', value: string) => {
         const newConfig = { ...props.config };
         const currentVipConfig = newConfig.vipConfig || {};
-        const countryTiers = [...(currentVipConfig[vipCountry] || [])];
+        let countryTiers = [...(currentVipConfig[vipCountry] || [])];
+
+        // If empty, initialize with default 5 tiers
+        if (countryTiers.length === 0) {
+            countryTiers = [
+                { level: 1, threshold: 0, reward: 0 },
+                { level: 2, threshold: 500000, reward: 20000 },
+                { level: 3, threshold: 1000000, reward: 50000 },
+                { level: 4, threshold: 2000000, reward: 100000 },
+                { level: 5, threshold: 5000000, reward: 250000 }
+            ];
+        }
 
         // Ensure we have a valid array to update
         if (countryTiers[index]) {
@@ -475,19 +486,32 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                 </div>
 
                                 <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
-                                    {(props.config.vipConfig?.['id'] || []).map((vip, idx) => (
-                                        <div key={vip.level} className="flex items-center gap-3 text-xs">
-                                            <span className="font-bold w-12 text-yellow-700">LV {vip.level}</span>
-                                            <div className="flex-1 flex items-center gap-2">
-                                                <span>Threshold:</span>
-                                                <input type="number" value={vip.threshold} onChange={e => handleVipConfigChange(idx, 'threshold', e.target.value)} className="w-20 border rounded p-1" />
+                                    {(() => {
+                                        // Get existing VIP config or generate default 5 tiers
+                                        const vipTiers = props.config.vipConfig?.['id'] && props.config.vipConfig['id'].length > 0
+                                            ? props.config.vipConfig['id']
+                                            : [
+                                                { level: 1, threshold: 0, reward: 0 },
+                                                { level: 2, threshold: 500000, reward: 20000 },
+                                                { level: 3, threshold: 1000000, reward: 50000 },
+                                                { level: 4, threshold: 2000000, reward: 100000 },
+                                                { level: 5, threshold: 5000000, reward: 250000 }
+                                            ];
+
+                                        return vipTiers.map((vip, idx) => (
+                                            <div key={vip.level} className="flex items-center gap-3 text-xs">
+                                                <span className="font-bold w-12 text-yellow-700">LV {vip.level}</span>
+                                                <div className="flex-1 flex items-center gap-2">
+                                                    <span>Threshold:</span>
+                                                    <input type="number" value={vip.threshold} onChange={e => handleVipConfigChange(idx, 'threshold', e.target.value)} className="w-20 border rounded p-1" />
+                                                </div>
+                                                <div className="flex-1 flex items-center gap-2">
+                                                    <span>Reward:</span>
+                                                    <input type="number" value={vip.reward} onChange={e => handleVipConfigChange(idx, 'reward', e.target.value)} className="w-20 border rounded p-1" />
+                                                </div>
                                             </div>
-                                            <div className="flex-1 flex items-center gap-2">
-                                                <span>Reward:</span>
-                                                <input type="number" value={vip.reward} onChange={e => handleVipConfigChange(idx, 'reward', e.target.value)} className="w-20 border rounded p-1" />
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ));
+                                    })()}
                                 </div>
                             </div>
 
