@@ -806,7 +806,7 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
 
     useEffect(() => {
         if (location.state?.openTransactions) {
-            navigate('/transactions');
+            navigate('/transactions', { replace: true });
             // Clear unread indicator when navigating to history via notification
             clearUnreadTx();
         }
@@ -978,15 +978,13 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
                         const isUnlocked = tier.level === 1 || user.totalEarnings >= tier.threshold;
 
                         return (
-                            <div key={tier.level} className={`relative flex-shrink-0 w-72 h-40 rounded-2xl p-5 snap-center overflow-hidden border transition-all shadow-lg ${isUnlocked ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-yellow-500/30' : 'bg-slate-800 border-slate-700 opacity-90'}`}>
-                                {/* Lock Overlay for higher levels - Improved Visibility (Req 8) */}
+                            <div key={tier.level} className={`relative flex-shrink-0 w-72 h-40 rounded-2xl p-5 snap-center overflow-hidden border transition-all shadow-lg bg-gradient-to-br from-slate-800 to-slate-900 ${isUnlocked ? 'border-yellow-500/30' : 'border-slate-700'}`}>
+                                {/* Lock Icon for higher levels - Minimalist (Req 8) */}
                                 {!isUnlocked && (
-                                    <div className="absolute inset-0 bg-black/60 z-10 flex items-center justify-center flex-col backdrop-blur-[1px]">
-                                        <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center mb-2 border border-slate-700 shadow-sm">
-                                            <Lock size={18} className="text-slate-400" />
+                                    <div className="absolute top-4 right-4 z-10">
+                                        <div className="w-8 h-8 rounded-full bg-slate-950/50 backdrop-blur flex items-center justify-center border border-slate-700 shadow-sm">
+                                            <Lock size={14} className="text-slate-500" />
                                         </div>
-                                        <span className="text-slate-300 text-xs font-bold uppercase tracking-widest">Locked</span>
-                                        <span className="text-[10px] text-slate-500 mt-1">Earn {formatMoney(tier.threshold, 'Rp')} to unlock</span>
                                     </div>
                                 )}
 
@@ -997,7 +995,9 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
                                         </div>
                                         <div>
                                             <div className="font-bold text-sm text-white">VIP Level {tier.level}</div>
-                                            <div className={`text-[10px] ${isUnlocked ? 'text-green-500' : 'text-slate-500'}`}>{isUnlocked ? 'Active Status' : 'Locked Status'}</div>
+                                            <div className={`text-[10px] ${isUnlocked ? 'text-green-500' : 'text-slate-500'}`}>{isUnlocked ? 'Active Status' : (
+                                                <span className="flex items-center gap-1"><Lock size={8} /> Locked Status</span>
+                                            )}</div>
                                         </div>
                                     </div>
                                     {isUnlocked && <Crown size={20} className="text-yellow-500 drop-shadow-lg" />}
