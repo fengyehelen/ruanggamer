@@ -227,14 +227,29 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         const currentVipConfig = newConfig.vipConfig || {};
         let countryTiers = [...(currentVipConfig[vipCountry] || [])];
 
-        // If empty, initialize with default 5 tiers
+        // If empty, initialize with default 20 tiers
         if (countryTiers.length === 0) {
             countryTiers = [
                 { level: 1, threshold: 0, reward: 0 },
                 { level: 2, threshold: 500000, reward: 20000 },
                 { level: 3, threshold: 1000000, reward: 50000 },
                 { level: 4, threshold: 2000000, reward: 100000 },
-                { level: 5, threshold: 5000000, reward: 250000 }
+                { level: 5, threshold: 5000000, reward: 250000 },
+                { level: 6, threshold: 10000000, reward: 500000 },
+                { level: 7, threshold: 20000000, reward: 1000000 },
+                { level: 8, threshold: 30000000, reward: 1500000 },
+                { level: 9, threshold: 50000000, reward: 2500000 },
+                { level: 10, threshold: 100000000, reward: 5000000 },
+                { level: 11, threshold: 200000000, reward: 10000000 },
+                { level: 12, threshold: 300000000, reward: 15000000 },
+                { level: 13, threshold: 500000000, reward: 25000000 },
+                { level: 14, threshold: 800000000, reward: 40000000 },
+                { level: 15, threshold: 1000000000, reward: 50000000 },
+                { level: 16, threshold: 1500000000, reward: 75000000 },
+                { level: 17, threshold: 2000000000, reward: 100000000 },
+                { level: 18, threshold: 3000000000, reward: 150000000 },
+                { level: 19, threshold: 5000000000, reward: 250000000 },
+                { level: 20, threshold: 10000000000, reward: 500000000 }
             ];
         }
 
@@ -487,7 +502,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
 
                                 <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
                                     {(() => {
-                                        // Get existing VIP config or generate default 5 tiers
+                                        // Get existing VIP config or generate default 20 tiers
                                         const vipTiers = props.config.vipConfig?.['id'] && props.config.vipConfig['id'].length > 0
                                             ? props.config.vipConfig['id']
                                             : [
@@ -495,7 +510,22 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                                 { level: 2, threshold: 500000, reward: 20000 },
                                                 { level: 3, threshold: 1000000, reward: 50000 },
                                                 { level: 4, threshold: 2000000, reward: 100000 },
-                                                { level: 5, threshold: 5000000, reward: 250000 }
+                                                { level: 5, threshold: 5000000, reward: 250000 },
+                                                { level: 6, threshold: 10000000, reward: 500000 },
+                                                { level: 7, threshold: 20000000, reward: 1000000 },
+                                                { level: 8, threshold: 30000000, reward: 1500000 },
+                                                { level: 9, threshold: 50000000, reward: 2500000 },
+                                                { level: 10, threshold: 100000000, reward: 5000000 },
+                                                { level: 11, threshold: 200000000, reward: 10000000 },
+                                                { level: 12, threshold: 300000000, reward: 15000000 },
+                                                { level: 13, threshold: 500000000, reward: 25000000 },
+                                                { level: 14, threshold: 800000000, reward: 40000000 },
+                                                { level: 15, threshold: 1000000000, reward: 50000000 },
+                                                { level: 16, threshold: 1500000000, reward: 75000000 },
+                                                { level: 17, threshold: 2000000000, reward: 100000000 },
+                                                { level: 18, threshold: 3000000000, reward: 150000000 },
+                                                { level: 19, threshold: 5000000000, reward: 250000000 },
+                                                { level: 20, threshold: 10000000000, reward: 500000000 }
                                             ];
 
                                         return vipTiers.map((vip, idx) => (
