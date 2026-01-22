@@ -169,7 +169,8 @@ const App: React.FC = () => {
 
         } catch (e: any) {
             // Req 2: Duplicate participation popup
-            if (e.message && e.message.includes("already started")) {
+            const errorMsg = e.message || '';
+            if (errorMsg.includes("already started") || errorMsg.includes("Task already taken")) {
                 alert("Anda telah mengikuti misi ini, silakan periksa progresnya di daftar misi.");
 
                 let url = platform.downloadLink;
@@ -179,7 +180,7 @@ const App: React.FC = () => {
                 window.open(url, '_blank');
 
             } else {
-                alert("Gagal mengambil misi: " + e.message);
+                alert("Gagal mengambil misi: " + errorMsg);
             }
         }
     };
