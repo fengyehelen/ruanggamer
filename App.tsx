@@ -24,8 +24,9 @@ const App: React.FC = () => {
 
     // System Config State
     const [config, setConfig] = useState<SystemConfig>({
-        initialBalance: {}, minWithdrawAmount: {}, telegramLinks: {}, hypeLevel: 5, helpContent: '', aboutContent: '', vipConfig: {}
+        initialBalance: {}, minWithdrawAmount: {}, telegramLinks: {}, customerServiceLinks: {}, hypeLevel: 5, helpContent: '', aboutContent: '', vipConfig: {}
     });
+
 
     // Load Initial Data from MockDB (Client Side)
     useEffect(() => {
@@ -380,12 +381,14 @@ const App: React.FC = () => {
                     <Layout
                         lang={lang} setLang={setLang} theme={'gold'}
                         telegramLink={config.telegramLinks['id']}
+                        customerServiceLink={config.customerServiceLinks['id']}
                         hasUnreadMsg={false} hasUnreadTx={hasUnreadTx}
                         hasUnreadMisi={hasUnreadMisi}
                     >
                         <Outlet />
                     </Layout>
                 }>
+
                     {/* Public Routes (Accessible without Login) */}
                     <Route path="/" element={
                         <HomeView

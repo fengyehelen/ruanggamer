@@ -129,7 +129,12 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                 if (savedAdminId) {
                     const admin = (adminsRes.admins || []).find(a => a.id === savedAdminId);
                     // @ts-ignore
-                    if (admin) setSession(admin);
+                    if (admin) {
+                        setSession(admin);
+                        // Restore last view state
+                        const savedView = localStorage.getItem('ruanggamer_admin_view');
+                        if (savedView) setView(savedView as any);
+                    }
                 }
             } catch (e) {
                 console.error("Failed to load init data", e);
@@ -137,6 +142,13 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         };
         loadInitData();
     }, []); // Run on mount
+
+    // Save view state when it changes
+    useEffect(() => {
+        if (session) {
+            localStorage.setItem('ruanggamer_admin_view', view);
+        }
+    }, [view, session]);
 
     const checkApiKey = async () => {
         // @ts-ignore
@@ -484,6 +496,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                 <div><label className="block text-xs font-bold text-slate-500 uppercase mb-2">Min Withdrawal (IDR)</label><div className="flex items-center mb-1"><input type="number" value={props.config.minWithdrawAmount['id'] || 0} onChange={e => handleConfigChange('min', 'id', e.target.value)} className="flex-1 border p-1 rounded text-sm" /></div></div>
                             </div>
                             <div><h4 className="text-sm font-bold mb-2">Telegram Channel</h4><input type="text" value={props.config.telegramLinks['id'] || ''} onChange={e => props.updateConfig({ ...props.config, telegramLinks: { ...props.config.telegramLinks, ['id']: e.target.value } })} className="w-full border p-2 rounded" placeholder="https://t.me/ruanggamer_id" /></div>
+                            <div><h4 className="text-sm font-bold mb-2">Customer Service Link</h4><input type="text" value={props.config.customerServiceLinks['id'] || ''} onChange={e => props.updateConfig({ ...props.config, customerServiceLinks: { ...props.config.customerServiceLinks, ['id']: e.target.value } })} className="w-full border p-2 rounded" placeholder="https://t.me/ruanggamer_cs" /></div>
                         </div>
                     </div>
                 )}

@@ -13,10 +13,10 @@ export interface Platform {
   rewardAmount: number;
   launchDate: string;
   isHot?: boolean;
-  isPinned?: boolean; 
+  isPinned?: boolean;
   remainingQty: number;
   totalQty: number;
-  likes?: number; 
+  likes?: number;
   steps: string[];
   rules: string;
   status: 'online' | 'offline';
@@ -58,9 +58,9 @@ export interface Message {
 export interface BankAccount {
   id: string;
   bankName: string;
-  accountName: string; 
-  accountNumber: string; 
-  type: 'bank' | 'ewallet' | 'crypto'; 
+  accountName: string;
+  accountNumber: string;
+  type: 'bank' | 'ewallet' | 'crypto';
 }
 
 export interface User {
@@ -69,21 +69,21 @@ export interface User {
   phone?: string; // Changed: Phone is optional
   password?: string;
   balance: number;
-  currency: string; 
+  currency: string;
   totalEarnings: number;
-  vipLevel: number; 
+  vipLevel: number;
   referralCode: string;
-  referrerId?: string; 
+  referrerId?: string;
   invitedCount: number;
   myTasks: UserTask[];
-  likedTaskIds: string[]; 
+  likedTaskIds: string[];
   registrationDate: string;
-  bankAccounts: BankAccount[]; 
+  bankAccounts: BankAccount[];
   role: 'user' | 'admin';
   messages: Message[];
   transactions: Transaction[];
   theme?: 'dark' | 'gold';
-  isBanned?: boolean; 
+  isBanned?: boolean;
 }
 
 export interface Admin {
@@ -101,25 +101,27 @@ export interface Activity {
   content: string;
   link: string;
   active: boolean;
-  showPopup?: boolean; 
+  showPopup?: boolean;
   targetCountries: Language[];
 }
 
 export interface VipTier {
-    level: number;
-    threshold: number; 
-    reward: number; 
+  level: number;
+  threshold: number;
+  reward: number;
 }
 
 export interface SystemConfig {
-  initialBalance: Record<string, number>; 
+  initialBalance: Record<string, number>;
   minWithdrawAmount: Record<string, number>;
   telegramLinks: Record<string, string>;
-  hypeLevel: number; 
-  helpContent: string; 
-  aboutContent: string; 
-  vipConfig: Record<string, VipTier[]>; 
+  customerServiceLinks: Record<string, string>;
+  hypeLevel: number;
+  helpContent: string;
+  aboutContent: string;
+  vipConfig: Record<string, VipTier[]>;
 }
+
 
 export enum SortOption {
   NEWEST = 'NEWEST',

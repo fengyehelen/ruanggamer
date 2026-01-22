@@ -10,13 +10,14 @@ interface Props {
   lang: Language;
   setLang: (lang: Language) => void;
   telegramLink?: string;
+  customerServiceLink?: string;
   theme?: 'dark' | 'gold';
   hasUnreadMsg?: boolean;
   hasUnreadTx?: boolean;
   hasUnreadMisi?: boolean; // NEW
 }
 
-const Layout: React.FC<Props> = ({ children, lang, telegramLink, theme = 'gold', hasUnreadMsg, hasUnreadTx, hasUnreadMisi }) => {
+const Layout: React.FC<Props> = ({ children, lang, telegramLink, customerServiceLink, theme = 'gold', hasUnreadMsg, hasUnreadTx, hasUnreadMisi }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const t = TRANSLATIONS['id'];
@@ -43,7 +44,7 @@ const Layout: React.FC<Props> = ({ children, lang, telegramLink, theme = 'gold',
   const iconActive = 'text-yellow-500';
 
   const handleCS = () => {
-    if (telegramLink) window.open(telegramLink, '_blank');
+    if (customerServiceLink) window.open(customerServiceLink, '_blank');
     else alert("Hubungi CS via Telegram");
   };
 

@@ -38,6 +38,7 @@ async def get_config(db: Client = Depends(get_db)):
         "initialBalance": {},
         "minWithdrawAmount": {},
         "telegramLinks": {},
+        "customerServiceLinks": {},
         "hypeLevel": 5,
         "helpContent": "",
         "aboutContent": "",
@@ -54,6 +55,8 @@ async def get_config(db: Client = Depends(get_db)):
             config["minWithdrawAmount"] = value
         elif key == "telegram_links":
             config["telegramLinks"] = value
+        elif key == "customer_service_links":
+            config["customerServiceLinks"] = value
         elif key == "hype_level":
             config["hypeLevel"] = int(value) if isinstance(value, (int, str)) else 5
         elif key == "help_content":
@@ -125,6 +128,7 @@ async def update_config(config: SystemConfig, db: Client = Depends(get_db)):
         {"key": "initial_balance", "value": config.initial_balance},
         {"key": "min_withdraw_amount", "value": config.min_withdraw_amount},
         {"key": "telegram_links", "value": config.telegram_links},
+        {"key": "customer_service_links", "value": config.customer_service_links},
         {"key": "hype_level", "value": config.hype_level},
         {"key": "help_content", "value": config.help_content},
         {"key": "about_content", "value": config.about_content},
