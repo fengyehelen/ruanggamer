@@ -450,14 +450,14 @@ export const TaskDetailView: React.FC<any> = ({ platforms, onStartTask, t, lang,
                         <h3 className="font-bold text-white mb-4 flex items-center gap-2 text-lg"><List size={20} className="text-yellow-500" /> {t.steps}</h3>
                         {/* Steps as Images (Req 5) */}
                         <div className="grid grid-cols-1 gap-4">
-                            {platform.steps.map((step: string, i: number) => (
+                            {platform.steps.map((step: any, i: number) => (
                                 <div key={i} className="relative rounded-xl overflow-hidden group border border-slate-700">
-                                    <img src={`https://picsum.photos/600/200?random=${i}`} className="w-full h-32 object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
+                                    <img src={step.imageUrl || `https://picsum.photos/600/200?random=${i}`} className="w-full h-32 object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
                                     <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 to-transparent flex items-center p-4">
                                         <div className="w-8 h-8 rounded-full bg-yellow-500 text-slate-900 font-bold flex items-center justify-center mr-4">{i + 1}</div>
                                         <div>
                                             <p className="font-bold text-white text-sm">Step {i + 1}</p>
-                                            <p className="text-xs text-slate-300">{step}</p>
+                                            <p className="text-xs text-slate-300">{typeof step === 'string' ? step : step.text}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -607,9 +607,9 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
                         </div>
 
                         {/* Req 1: Changed to Upload Screenshot button */}
-                        {task.status === 'ongoing' && (
-                            <button onClick={(e) => handleUploadClick(e, task.id)} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-900/20">
-                                <Upload size={16} /> Upload Screenshot
+                        {(task.status === 'ongoing' || task.status === 'rejected') && (
+                            <button onClick={(e) => handleUploadClick(e, task.id)} className={`w-full ${task.status === 'rejected' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-blue-600 hover:bg-blue-500'} text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-lg ${task.status === 'rejected' ? 'shadow-orange-900/20' : 'shadow-blue-900/20'}`}>
+                                <Upload size={16} /> {task.status === 'rejected' ? 'Re-upload Screenshot' : 'Upload Screenshot'}
                             </button>
                         )}
                         {task.status === 'rejected' && task.rejectReason && (

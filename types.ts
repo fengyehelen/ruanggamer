@@ -1,6 +1,12 @@
 
 export type Language = 'id';
 
+// 任务步骤，支持文本和可选的图片
+export interface TaskStep {
+  text: string;
+  imageUrl?: string;
+}
+
 export interface Platform {
   id: string;
   name: string;
@@ -17,7 +23,7 @@ export interface Platform {
   remainingQty: number;
   totalQty: number;
   likes?: number;
-  steps: string[];
+  steps: TaskStep[];
   rules: string;
   status: 'online' | 'offline';
   type: 'deposit' | 'register' | 'share';

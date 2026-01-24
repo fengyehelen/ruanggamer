@@ -99,7 +99,11 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     // Force ID
     const taskCountry = 'id';
     const [taskTotalQty, setTaskTotalQty] = useState<string>('100');
-    const [taskSteps, setTaskSteps] = useState<string[]>(['Download App', 'Register', 'Deposit']);
+    const [taskSteps, setTaskSteps] = useState<{ text: string; imageUrl?: string }[]>([
+        { text: 'Download App' },
+        { text: 'Register' },
+        { text: 'Deposit' }
+    ]);
     const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
 
 
@@ -109,6 +113,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     const [newAdmin, setNewAdmin] = useState({ username: '', password: '', role: 'editor' });
     const [msgData, setMsgData] = useState({ userId: 'all', title: '', content: '', amount: '0' });
     const [userSort, setUserSort] = useState<'reg' | 'bal' | 'earnings'>('reg');
+    const [userSearch, setUserSearch] = useState(''); // 用户搜索关键词（邮箱/UID/手机号）
 
     useEffect(() => { checkApiKey(); }, []);
 
@@ -272,7 +277,9 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         setTaskLink(task.downloadLink);
         setTaskImage(task.logoUrl);
         setTaskTotalQty(task.totalQty.toString());
-        setTaskSteps(task.steps);
+        // 兼容旧的字符串数组格式
+        const steps = task.steps.map(s => typeof s === 'string' ? { text: s } : s);
+        setTaskSteps(steps);
         // Scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -391,7 +398,18 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         .map(tx => ({ ...tx, user: u }))
     ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    const sortedUsers = [...users].sort((a, b) => {
+    // 先过滤再排序
+    const filteredUsers = users.filter(u => {
+        if (!userSearch.trim()) return true;
+        const search = userSearch.toLowerCase().trim();
+        return (
+            u.id?.toLowerCase().includes(search) ||
+            u.phone?.toLowerCase().includes(search) ||
+            u.email?.toLowerCase().includes(search)
+        );
+    });
+
+    const sortedUsers = [...filteredUsers].sort((a, b) => {
         if (userSort === 'bal') return b.balance - a.balance;
         if (userSort === 'earnings') return b.totalEarnings - a.totalEarnings;
         return new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime();
@@ -650,24 +668,53 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
 
                 {view === 'users' && (
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 flex gap-4">
-                            <span className="text-xs font-bold uppercase py-2">Sort by:</span>
-                            <button onClick={() => setUserSort('reg')} className={`text-xs px-3 py-1 rounded ${userSort === 'reg' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100'}`}>Registration</button>
-                            <button onClick={() => setUserSort('bal')} className={`text-xs px-3 py-1 rounded ${userSort === 'bal' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100'}`}>Balance</button>
-                            <button onClick={() => setUserSort('earnings')} className={`text-xs px-3 py-1 rounded ${userSort === 'earnings' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100'}`}>Total Earnings</button>
+                        <div className="p-4 border-b border-slate-100 flex flex-wrap gap-4 items-center">
+                            {/* 搜索框 */}
+                            <div className="flex-1 min-w-[200px]">
+                                <input
+                                    type="text"
+                                    value={userSearch}
+                                    onChange={e => setUserSearch(e.target.value)}
+                                    placeholder="Search by Email / UID / Phone..."
+                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+                                />
+                            </div>
+
+                            {/* 排序按钮 */}
+                            <div className="flex gap-2 items-center">
+                                <span className="text-xs font-bold uppercase">Sort:</span>
+                                <button onClick={() => setUserSort('reg')} className={`text-xs px-3 py-1 rounded ${userSort === 'reg' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100'}`}>Registration</button>
+                                <button onClick={() => setUserSort('bal')} className={`text-xs px-3 py-1 rounded ${userSort === 'bal' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100'}`}>Balance</button>
+                                <button onClick={() => setUserSort('earnings')} className={`text-xs px-3 py-1 rounded ${userSort === 'earnings' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100'}`}>Total Earnings</button>
+                            </div>
+
+                            {/* 用户计数 */}
+                            <div className="text-xs text-slate-500">
+                                Showing {sortedUsers.length} of {users.length} users
+                            </div>
                         </div>
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 border-b border-slate-200">
-                                <tr><th className="p-4">User</th><th className="p-4">Balance</th><th className="p-4">Bank Info</th><th className="p-4">Joined</th><th className="p-4">Total Earned</th><th className="p-4">Actions</th></tr>
+                                <tr>
+                                    <th className="p-4">User</th>
+                                    <th className="p-4">Email</th>
+                                    <th className="p-4">Balance</th>
+                                    <th className="p-4">Bank Info</th>
+                                    <th className="p-4">Joined</th>
+                                    <th className="p-4">Total Earned</th>
+                                    <th className="p-4">Actions</th>
+                                </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
+                                {sortedUsers.length === 0 && <tr><td colSpan={7} className="p-12 text-center text-slate-400">No users found</td></tr>}
                                 {sortedUsers.map(u => (
                                     <tr key={u.id} className={`hover:bg-slate-50 ${u.isBanned ? 'bg-red-50' : ''}`}>
                                         <td className="p-4">
                                             <div className="font-bold text-slate-900">{u.phone}</div>
-                                            <div className="text-[10px] text-slate-400">ID: {u.id} | Pwd: {u.password}</div>
+                                            <div className="text-[10px] text-slate-400">ID: {u.id}</div>
                                             {u.isBanned && <span className="text-[10px] text-red-600 font-bold uppercase">BANNED</span>}
                                         </td>
+                                        <td className="p-4 text-sm text-slate-600">{u.email || <span className="text-slate-400">-</span>}</td>
                                         <td className="p-4 font-mono font-bold text-green-600">{u.currency} {u.balance}</td>
                                         <td className="p-4 text-xs max-w-xs break-words">
                                             {(u.bankAccounts || []).map((b, i) => (
@@ -722,7 +769,74 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                 </div>
                                 <div className="space-y-4">
                                     <div className="space-y-2"><label className="text-xs font-bold uppercase text-slate-500">Total Quantity (Limit)</label><input type="number" value={taskTotalQty} onChange={e => setTaskTotalQty(e.target.value)} className="w-full border border-slate-300 p-2.5 rounded-lg focus:outline-none font-mono" placeholder="100" /></div>
-                                    <div className="space-y-2"><label className="text-xs font-bold uppercase text-slate-500">Task Steps</label><div className="bg-slate-50 rounded-lg p-3 border border-slate-200 space-y-2 max-h-48 overflow-y-auto">{taskSteps.map((step, idx) => (<div key={idx} className="flex gap-2"><span className="bg-white border w-6 h-8 flex items-center justify-center rounded text-xs font-bold text-slate-400">{idx + 1}</span><input value={step} onChange={e => { const newSteps = [...taskSteps]; newSteps[idx] = e.target.value; setTaskSteps(newSteps); }} className="flex-1 border p-1 rounded px-2 text-sm focus:outline-none focus:border-indigo-400" /><button onClick={() => setTaskSteps(taskSteps.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-red-500"><X size={16} /></button></div>))}<button onClick={() => setTaskSteps([...taskSteps, 'New Step'])} className="w-full py-1 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded flex items-center justify-center gap-1"><Plus size={12} /> Add Step</button></div></div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold uppercase text-slate-500">Task Steps</label>
+                                        <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 space-y-3 max-h-96 overflow-y-auto">
+                                            {taskSteps.map((step, idx) => (
+                                                <div key={idx} className="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
+                                                    <div className="flex gap-2 items-center">
+                                                        <span className="bg-indigo-100 text-indigo-600 w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold">{idx + 1}</span>
+                                                        <input
+                                                            value={step.text}
+                                                            onChange={e => {
+                                                                const newSteps = [...taskSteps];
+                                                                newSteps[idx] = { ...newSteps[idx], text: e.target.value };
+                                                                setTaskSteps(newSteps);
+                                                            }}
+                                                            className="flex-1 border p-2 rounded-lg text-sm focus:outline-none focus:border-indigo-400"
+                                                            placeholder="Step description..."
+                                                        />
+                                                        <button onClick={() => setTaskSteps(taskSteps.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-red-500 p-1">
+                                                            <X size={16} />
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex gap-2 items-center pl-8">
+                                                        {step.imageUrl ? (
+                                                            <div className="relative group">
+                                                                <img src={step.imageUrl} className="h-16 w-24 object-cover rounded border" />
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const newSteps = [...taskSteps];
+                                                                        newSteps[idx] = { ...newSteps[idx], imageUrl: undefined };
+                                                                        setTaskSteps(newSteps);
+                                                                    }}
+                                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                >×</button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2">
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    onChange={e => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) {
+                                                                            const reader = new FileReader();
+                                                                            reader.onloadend = () => {
+                                                                                const newSteps = [...taskSteps];
+                                                                                newSteps[idx] = { ...newSteps[idx], imageUrl: reader.result as string };
+                                                                                setTaskSteps(newSteps);
+                                                                            };
+                                                                            reader.readAsDataURL(file);
+                                                                        }
+                                                                    }}
+                                                                    className="text-xs w-48"
+                                                                />
+                                                                <span className="text-[10px] text-slate-400">Step screenshot (optional)</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            <button
+                                                onClick={() => setTaskSteps([...taskSteps, { text: 'New Step' }])}
+                                                className="w-full py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg flex items-center justify-center gap-1 transition-colors"
+                                            >
+                                                <Plus size={12} /> Add Step
+                                            </button>
+                                        </div>
+                                    </div>
+
                                 </div>
                             </div>
                             <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end"><button onClick={publishTask} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 flex items-center gap-2 transition-transform hover:-translate-y-1 active:scale-95"><Save size={18} /> {editingTaskId ? 'Update Task' : 'Publish Task'}</button></div>

@@ -9,9 +9,10 @@ from typing import Optional
 from supabase import Client
 from datetime import datetime
 import uuid
+import json
 
 from database import get_db
-from schemas import Platform, UserResponse, UserTask
+from schemas import Platform, UserResponse, UserTask, TaskStep
 from routers.auth import convert_db_user_to_response
 
 router = APIRouter(prefix="/tasks", tags=["任务"])
@@ -27,7 +28,7 @@ class TaskCreate(BaseModel):
     firstDepositAmount: float = 0
     rewardAmount: float
     totalQty: int = 0
-    steps: list[str] = []
+    steps: list[TaskStep] = []
     rules: str = ""
     status: str = "online"
     type: str = "deposit"
@@ -54,7 +55,7 @@ class TaskUpdate(BaseModel):
     remainingQty: Optional[int] = None
     isPinned: Optional[bool] = None
     isHot: Optional[bool] = None
-    steps: Optional[list[str]] = None
+    steps: Optional[list[TaskStep]] = None
     rules: Optional[str] = None
     status: Optional[str] = None
     type: Optional[str] = None
@@ -64,6 +65,27 @@ class TaskUpdate(BaseModel):
 
 def convert_db_platform(p: dict) -> dict:
     """将数据库平台数据转换为 API 响应格式"""
+    # 解析 steps，支持新旧两种格式
+    db_steps = p.get("steps") or []
+    parsed_steps = []
+    for step in db_steps:
+        if isinstance(step, dict):
+            # 已经是字典格式（新格式）
+            parsed_steps.append(step)
+        elif isinstance(step, str):
+            # 可能是 JSON 字符串，尝试解析
+            try:
+                parsed = json.loads(step)
+                if isinstance(parsed, dict):
+                    parsed_steps.append(parsed)
+                else:
+                    parsed_steps.append({"text": step})
+            except (json.JSONDecodeError, TypeError):
+                # 解析失败，作为纯文本处理
+                parsed_steps.append({"text": step})
+        else:
+            parsed_steps.append({"text": str(step)})
+    
     return {
         "id": p["id"],
         "name": p["name"],
@@ -80,7 +102,7 @@ def convert_db_platform(p: dict) -> dict:
         "remainingQty": p.get("remaining_qty", 0),
         "totalQty": p.get("total_qty", 0),
         "likes": p.get("likes", 0),
-        "steps": p.get("steps") or [],
+        "steps": parsed_steps,
         "rules": p.get("rules", ""),
         "status": p.get("status", "online"),
         "type": p.get("type", "deposit"),
@@ -211,7 +233,7 @@ async def create_task(task: TaskCreate, db: Client = Depends(get_db)):
         "reward_amount": task.rewardAmount,
         "total_qty": task.totalQty,
         "remaining_qty": task.totalQty, # 初始剩余等于总量
-        "steps": task.steps,
+        "steps": [s.model_dump(by_alias=True) for s in task.steps],
         "rules": task.rules,
         "status": task.status,
         "type": task.type,
@@ -244,7 +266,7 @@ async def update_task(task_id: str, task: TaskUpdate, db: Client = Depends(get_d
     if task.remainingQty is not None: updates["remaining_qty"] = task.remainingQty
     if task.isPinned is not None: updates["is_pinned"] = task.isPinned
     if task.isHot is not None: updates["is_hot"] = task.isHot
-    if task.steps is not None: updates["steps"] = task.steps
+    if task.steps is not None: updates["steps"] = [s.model_dump(by_alias=True) for s in task.steps]
     if task.rules is not None: updates["rules"] = task.rules
     if task.status is not None: updates["status"] = task.status
     if task.type is not None: updates["type"] = task.type
@@ -315,26 +337,43 @@ async def upload_file(file: UploadFile = File(...), db: Client = Depends(get_db)
 async def submit_proof(req: SubmitProofRequest, db: Client = Depends(get_db)):
     """
     提交任务凭证，更新状态为待审核
+    支持初次提交（ongoing）和被拒绝后重新提交（rejected）
     """
     try:
-        # 更新 user_tasks 表
+        # 首先查询当前任务状态
+        task_query = db.table("user_tasks").select("*").eq("user_id", req.user_id).eq("id", req.task_id).execute()
+        
+        if not task_query.data:
+            # 尝试通过 platform_id 查找 (兼容逻辑)
+            task_query = db.table("user_tasks").select("*").eq("user_id", req.user_id).eq("platform_id", req.task_id).execute()
+        
+        if not task_query.data:
+            raise HTTPException(status_code=404, detail="Task record not found")
+        
+        current_task = task_query.data[0]
+        current_status = current_task.get("status")
+        
+        # 只允许 ongoing 或 rejected 状态的任务提交证明
+        if current_status not in ["ongoing", "rejected"]:
+            raise HTTPException(status_code=400, detail=f"Cannot submit proof for task with status: {current_status}")
+        
+        # 更新 user_tasks 表，重新提交时清除拒绝原因
         update_data = {
             "status": "reviewing",
             "proof_image_url": req.proof_image_url,
-            "submission_time": datetime.now().isoformat()
+            "submission_time": datetime.now().isoformat(),
+            "reject_reason": None  # 清除之前的拒绝原因
         }
         
-        result = db.table("user_tasks").update(update_data).eq("user_id", req.user_id).eq("id", req.task_id).execute()
+        result = db.table("user_tasks").update(update_data).eq("id", current_task["id"]).execute()
         
         if not result.data:
-            # 尝试通过 platform_id 查找 (兼容逻辑)
-            result = db.table("user_tasks").update(update_data).eq("user_id", req.user_id).eq("platform_id", req.task_id).execute()
-            
-        if not result.data:
-            raise HTTPException(status_code=404, detail="Task record not found")
+            raise HTTPException(status_code=500, detail="Failed to update task")
             
         return {"message": "Proof submitted successfully", "data": result.data[0]}
         
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Submit proof failed: {e}")
         raise HTTPException(status_code=500, detail=f"Submit failed: {str(e)}")

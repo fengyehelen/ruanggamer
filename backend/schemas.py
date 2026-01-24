@@ -215,6 +215,14 @@ class PlatformBase(BaseModel):
     reward_amount: float = Field(..., alias="rewardAmount")
 
 
+# 任务步骤，支持文本和可选的图片
+class TaskStep(BaseModel):
+    text: str
+    image_url: Optional[str] = Field(None, alias="imageUrl")
+    
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class Platform(PlatformBase):
     id: str
     name_color: Optional[str] = Field(None, alias="nameColor")
@@ -225,7 +233,7 @@ class Platform(PlatformBase):
     remaining_qty: int = Field(0, alias="remainingQty")
     total_qty: int = Field(0, alias="totalQty")
     likes: int = 0
-    steps: list[str] = Field(default_factory=list)
+    steps: list[TaskStep] = Field(default_factory=list)
     rules: str = ""
     status: PlatformStatus = PlatformStatus.ONLINE
     type: PlatformType = PlatformType.DEPOSIT
