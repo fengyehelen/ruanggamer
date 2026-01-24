@@ -425,7 +425,7 @@ const App: React.FC = () => {
                     <Route path="/about" element={<StaticPageView title="Tentang Kami" content="RuangGamer adalah platform gaming reward nomor 1 di Indonesia." />} />
 
                     {/* Protected Routes (Redirect to Login if null) */}
-                    <Route path="/my-tasks" element={user ? <MyTasksView user={user} t={TRANSLATIONS[lang]} onSubmitProof={handleSubmitProof} lang={lang} clearUnreadMisi={handleClearUnreadMisi} /> : <Navigate to="/login" />} />
+                    <Route path="/my-tasks" element={user ? <MyTasksView user={user} t={TRANSLATIONS[lang]} onSubmitProof={handleSubmitProof} lang={lang} clearUnreadMisi={handleClearUnreadMisi} config={config} /> : <Navigate to="/login" />} />
                     <Route path="/referral" element={user ? <ReferralView user={user} users={[]} t={TRANSLATIONS[lang]} config={config} lang={lang} /> : <Navigate to="/login" />} />
                     <Route path="/mailbox" element={user ? <MailboxView user={user} t={TRANSLATIONS[lang]} markAllRead={() => { }} /> : <Navigate to="/login" />} />
                     <Route path="/transactions" element={user ? <TransactionHistoryView user={user} t={TRANSLATIONS[lang]} /> : <Navigate to="/login" />} />

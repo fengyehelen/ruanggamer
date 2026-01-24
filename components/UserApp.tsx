@@ -504,10 +504,11 @@ export const ActivityDetailView: React.FC<any> = ({ activities, t }) => {
     );
 };
 
-export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clearUnreadMisi }) => {
+export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clearUnreadMisi, config }) => {
     const navigate = useNavigate();
     const tasks = user.myTasks || [];
     const [filter, setFilter] = useState<'all' | 'ongoing' | 'completed'>('all');
+    const [showExample, setShowExample] = useState(false); // 示例图片展开状态
 
     useEffect(() => {
         if (clearUnreadMisi) clearUnreadMisi();
@@ -562,6 +563,9 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
         return task.status === 'ongoing' || task.status === 'reviewing';
     });
 
+    // 获取示例图片
+    const exampleImage = config?.misiExampleImage?.[lang] || config?.misiExampleImage?.['id'];
+
     return (
         <div className="min-h-screen bg-slate-900 pb-24">
             {/* Hidden File Input */}
@@ -576,11 +580,38 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
             <div className="bg-slate-900 p-4 sticky top-0 z-10 border-b border-slate-800">
                 <h1 className="font-bold text-lg text-white mb-4">{t.myTasksTitle}</h1>
                 <div className="flex gap-2">
-                    {['all', 'ongoing', 'completed'].map(f => (
-                        <button key={f} onClick={() => setFilter(f as any)} className={`px-4 py-2 rounded-lg text-xs font-bold capitalize ${filter === f ? 'bg-yellow-500 text-slate-900' : 'bg-slate-800 text-slate-500'}`}>{f}</button>
+                    {[
+                        { key: 'all', label: 'semua' },
+                        { key: 'ongoing', label: 'berlangsung' },
+                        { key: 'completed', label: 'selesai' }
+                    ].map(f => (
+                        <button key={f.key} onClick={() => setFilter(f.key as any)} className={`px-4 py-2 rounded-lg text-xs font-bold capitalize ${filter === f.key ? 'bg-yellow-500 text-slate-900' : 'bg-slate-800 text-slate-500'}`}>{f.label}</button>
                     ))}
                 </div>
             </div>
+
+            {/* 示例图片展开/收起按钮 */}
+            {exampleImage && (
+                <div className="px-4 pt-4">
+                    <button
+                        onClick={() => setShowExample(!showExample)}
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg hover:from-blue-500 hover:to-blue-400 transition-all mb-3"
+                    >
+                        <ImageIcon size={16} />
+                        {showExample ? 'Sembunyikan contoh gambar' : 'Lihat contoh gambar'}
+                    </button>
+
+                    {showExample && (
+                        <div className="overflow-hidden animate-fadeIn">
+                            <img
+                                src={exampleImage}
+                                alt="Task Example"
+                                className="w-full rounded-xl shadow-lg border border-slate-700"
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="p-4 space-y-4">
                 {filtered.length === 0 && <div className="text-center py-10 text-slate-500">No tasks found</div>}
@@ -598,7 +629,12 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
                             <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${task.status === 'completed' ? 'bg-green-500/20 text-green-500' :
                                 task.status === 'rejected' ? 'bg-red-500/20 text-red-500' :
                                     task.status === 'reviewing' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-blue-500/20 text-blue-500'
-                                }`}>{task.status}</span>
+                                }`}>
+                                {task.status === 'rejected' ? 'Ditolak' :
+                                    task.status === 'reviewing' ? 'ditinjau' :
+                                        task.status === 'ongoing' ? 'berlangsung' :
+                                            task.status === 'completed' ? 'selesai' : task.status}
+                            </span>
                         </div>
 
                         <div className="flex justify-between items-center bg-slate-900 p-3 rounded-lg border border-slate-800 mb-4">
@@ -609,7 +645,7 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
                         {/* Req 1: Changed to Upload Screenshot button */}
                         {(task.status === 'ongoing' || task.status === 'rejected') && (
                             <button onClick={(e) => handleUploadClick(e, task.id)} className={`w-full ${task.status === 'rejected' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-blue-600 hover:bg-blue-500'} text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-lg ${task.status === 'rejected' ? 'shadow-orange-900/20' : 'shadow-blue-900/20'}`}>
-                                <Upload size={16} /> {task.status === 'rejected' ? 'Re-upload Screenshot' : 'Upload Screenshot'}
+                                <Upload size={16} /> Unggah Gambar (lihat contoh)
                             </button>
                         )}
                         {task.status === 'rejected' && task.rejectReason && (
@@ -687,7 +723,7 @@ export const ReferralView: React.FC<any> = ({ user, t, config, lang }) => {
 
                 {/* 3-Tier Tree Diagram */}
                 <div className="mb-8">
-                    <h3 className="font-bold text-lg text-white mb-4 text-center">Commission Structure</h3>
+                    <h3 className="font-bold text-lg text-white mb-4 text-center">Struktur Komisi</h3>
                     <div className="flex flex-col items-center">
                         {/* YOU */}
                         <div className="w-16 h-16 rounded-full bg-yellow-500 flex items-center justify-center text-slate-900 font-bold border-4 border-slate-700 z-10">YOU</div>
@@ -962,7 +998,7 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
                                 <span className="text-[10px] uppercase bg-slate-700 px-2 py-0.5 rounded text-slate-300">{acc.type}</span>
                             </div>
                             <div>
-                                <div className="text-slate-400 text-[10px] uppercase">Account Number</div>
+                                <div className="text-slate-400 text-[10px] uppercase">Nomor Akun</div>
                                 <div className="font-mono text-white tracking-wider">{acc.accountNumber}</div>
                             </div>
                             <div className="text-xs text-slate-500 truncate">{acc.accountName}</div>
@@ -1005,7 +1041,7 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
 
                                 <div className="space-y-2 relative z-0">
                                     <div className="flex justify-between text-xs items-center border-b border-dashed border-slate-700 pb-2">
-                                        <span className="text-slate-400">Total Revenue</span>
+                                        <span className="text-slate-400">Total Pendapatan</span>
                                         <span className="font-mono font-bold text-slate-200">{formatMoney(tier.threshold, 'Rp')}</span>
                                     </div>
                                     <div className="flex justify-between text-xs items-center pt-1">
@@ -1025,7 +1061,7 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
                     <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <History size={18} className="text-slate-400" />
-                            <span className="font-bold text-sm text-slate-200">Latest Record</span>
+                            <span className="font-bold text-sm text-slate-200">Catatan Terbaru</span>
                         </div>
                         <ChevronRight size={16} className="text-slate-600" />
                     </div>
@@ -1080,7 +1116,7 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
                             </div>
                         </div>
                         <h3 className="text-white font-bold mb-1 text-center text-lg">Bind Phone Number</h3>
-                        <p className="text-slate-400 text-xs text-center mb-6">Secure your account to withdraw funds.</p>
+                        <p className="text-slate-400 text-xs text-center mb-6">mankan akun Anda untuk menarik dana.</p>
 
                         <div className="space-y-4">
                             <div>
@@ -1088,7 +1124,7 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
                                 <input type="tel" value={phoneInput} onChange={e => setPhoneInput(e.target.value)} placeholder="08..." className="w-full bg-slate-900 border border-slate-600 text-white p-3 rounded-xl mt-1 focus:border-yellow-500 outline-none transition-colors" />
                             </div>
                             <div className="flex gap-3 pt-2">
-                                <button onClick={() => setIsBindingPhone(false)} className="flex-1 bg-slate-700 text-slate-300 py-3 rounded-xl font-bold hover:bg-slate-600 transition-colors">Cancel</button>
+                                <button onClick={() => setIsBindingPhone(false)} className="flex-1 bg-slate-700 text-slate-300 py-3 rounded-xl font-bold hover:bg-slate-600 transition-colors">batal</button>
                                 <button onClick={handleBindPhoneSubmit} className="flex-1 bg-yellow-500 text-slate-900 py-3 rounded-xl font-bold hover:bg-yellow-400 shadow-lg shadow-yellow-500/20 transition-colors">Bind Now</button>
                             </div>
                         </div>
@@ -1109,7 +1145,7 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
 
                         <div className="space-y-4 mt-4">
                             <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Account Type</label>
+                                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Jenis Akun</label>
                                 <div className="flex gap-2 mt-1">
                                     <button onClick={() => setCardType('ewallet')} className={`flex-1 py-2 rounded-lg text-xs font-bold border ${cardType === 'ewallet' ? 'bg-yellow-500 text-slate-900 border-yellow-500' : 'bg-slate-900 text-slate-400 border-slate-600'}`}>E-Wallet</button>
                                     <button onClick={() => setCardType('bank')} className={`flex-1 py-2 rounded-lg text-xs font-bold border ${cardType === 'bank' ? 'bg-yellow-500 text-slate-900 border-yellow-500' : 'bg-slate-900 text-slate-400 border-slate-600'}`}>Bank Transfer</button>
@@ -1117,9 +1153,9 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
                             </div>
 
                             <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Select Provider</label>
+                                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Pilih Penyedia</label>
                                 <select value={bankName} onChange={e => setBankName(e.target.value)} className="w-full bg-slate-900 border border-slate-600 text-white p-3 rounded-xl mt-1 focus:border-yellow-500 outline-none">
-                                    <option value="">Select...</option>
+                                    <option value="">Pilih...</option>
                                     {(BANK_OPTIONS['id'] || []).filter(b => b.type === cardType).map(b => (
                                         <option key={b.name} value={b.name}>{b.name}</option>
                                     ))}
@@ -1127,17 +1163,17 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
                             </div>
 
                             <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Account Number</label>
+                                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Nomor Akun</label>
                                 <input type="number" value={accNumber} onChange={e => setAccNumber(e.target.value)} placeholder="08..." className="w-full bg-slate-900 border border-slate-600 text-white p-3 rounded-xl mt-1 focus:border-yellow-500 outline-none" />
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Account Name</label>
+                                <label className="text-xs font-bold text-slate-500 uppercase ml-1">Nama Akun</label>
                                 <input type="text" value={accName} onChange={e => setAccName(e.target.value)} placeholder="Sesuai KTP" className="w-full bg-slate-900 border border-slate-600 text-white p-3 rounded-xl mt-1 focus:border-yellow-500 outline-none" />
                             </div>
 
                             <div className="flex gap-3 pt-2">
-                                <button onClick={() => setIsBindingCard(false)} className="flex-1 bg-slate-700 text-slate-300 py-3 rounded-xl font-bold hover:bg-slate-600 transition-colors">Cancel</button>
-                                <button onClick={handleBindCardSubmit} className="flex-1 bg-yellow-500 text-slate-900 py-3 rounded-xl font-bold hover:bg-yellow-400 shadow-lg shadow-yellow-500/20 transition-colors">Save Account</button>
+                                <button onClick={() => setIsBindingCard(false)} className="flex-1 bg-slate-700 text-slate-300 py-3 rounded-xl font-bold hover:bg-slate-600 transition-colors">batal</button>
+                                <button onClick={handleBindCardSubmit} className="flex-1 bg-yellow-500 text-slate-900 py-3 rounded-xl font-bold hover:bg-yellow-400 shadow-lg shadow-yellow-500/20 transition-colors">simpan akun</button>
                             </div>
                         </div>
                     </div>
@@ -1173,7 +1209,7 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
                             </div>
 
                             <div className="flex gap-3 pt-2">
-                                <button onClick={() => setIsWithdrawing(false)} className="flex-1 bg-slate-700 text-slate-300 py-3 rounded-xl font-bold hover:bg-slate-600 transition-colors">Cancel</button>
+                                <button onClick={() => setIsWithdrawing(false)} className="flex-1 bg-slate-700 text-slate-300 py-3 rounded-xl font-bold hover:bg-slate-600 transition-colors">batal</button>
                                 <button onClick={handleWithdrawSubmit} className="flex-1 bg-green-500 text-white py-3 rounded-xl font-bold hover:bg-green-600 shadow-lg shadow-green-500/20 transition-colors">Confirm</button>
                             </div>
                         </div>

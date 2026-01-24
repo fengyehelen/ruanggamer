@@ -126,6 +126,7 @@ export interface SystemConfig {
   helpContent: string;
   aboutContent: string;
   vipConfig: Record<string, VipTier[]>;
+  misiExampleImage?: Record<string, string>; // 示例图片：国家代码 -> 图片URL
 }
 
 

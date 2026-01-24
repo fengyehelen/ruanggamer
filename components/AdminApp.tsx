@@ -532,6 +532,62 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                             </div>
                             <div><h4 className="text-sm font-bold mb-2">Telegram Channel</h4><input type="text" value={props.config.telegramLinks['id'] || ''} onChange={e => props.updateConfig({ ...props.config, telegramLinks: { ...props.config.telegramLinks, ['id']: e.target.value } })} className="w-full border p-2 rounded" placeholder="https://t.me/ruanggamer_id" /></div>
                             <div><h4 className="text-sm font-bold mb-2">Customer Service Link</h4><input type="text" value={props.config.customerServiceLinks['id'] || ''} onChange={e => props.updateConfig({ ...props.config, customerServiceLinks: { ...props.config.customerServiceLinks, ['id']: e.target.value } })} className="w-full border p-2 rounded" placeholder="https://t.me/ruanggamer_cs" /></div>
+
+                            {/* Misi Example Image */}
+                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                <h4 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
+                                    <Image size={16} /> Misi Page Example Image
+                                </h4>
+                                <p className="text-xs text-slate-600 mb-3">Upload a mobile screenshot to display at the top of the Misi (My Tasks) page as an example.</p>
+                                <div className="flex gap-4 items-start">
+                                    <div className="flex-1">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onloadend = () => {
+                                                        const base64 = reader.result as string;
+                                                        props.updateConfig({
+                                                            ...props.config,
+                                                            misiExampleImage: {
+                                                                ...props.config.misiExampleImage,
+                                                                'id': base64
+                                                            }
+                                                        });
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
+                                            className="w-full text-xs"
+                                        />
+                                        <p className="text-[10px] text-slate-500 mt-1">Recommended: Mobile screenshot size (e.g., 1080x1920)</p>
+                                    </div>
+                                    {props.config.misiExampleImage?.['id'] && (
+                                        <div className="relative group">
+                                            <img
+                                                src={props.config.misiExampleImage['id']}
+                                                alt="Misi Example"
+                                                className="h-32 w-auto rounded border border-slate-300 shadow-sm"
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    props.updateConfig({
+                                                        ...props.config,
+                                                        misiExampleImage: {
+                                                            ...props.config.misiExampleImage,
+                                                            'id': ''
+                                                        }
+                                                    });
+                                                }}
+                                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >×</button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}

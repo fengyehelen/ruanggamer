@@ -290,6 +290,7 @@ class SystemConfig(BaseModel):
     help_content: str = Field("", alias="helpContent")
     about_content: str = Field("", alias="aboutContent")
     vip_config: dict[str, list[VipTier]] = Field(default_factory=dict, alias="vipConfig")
+    misi_example_image: dict[str, str] = Field(default_factory=dict, alias="misiExampleImage")
 
 
     model_config = ConfigDict(
