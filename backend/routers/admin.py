@@ -132,7 +132,7 @@ async def get_all_users(db: Client = Depends(get_db)):
 
     """获取所有用户列表（Admin Only）"""
     # 获取用户及其关联数据, 包括银行账户
-    res = db.table("users").select("*, transactions(*), user_tasks(*), bank_accounts(*)").execute()
+    res = db.table("users").select("*, transactions(*), user_tasks(*), bank_accounts(*), messages(*)").execute()
 
     
     if not res.data:

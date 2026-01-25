@@ -474,8 +474,16 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                 <div className="p-6 border-b border-slate-800"><h1 className="text-xl font-bold flex items-center gap-2 text-white"><Shield className="text-yellow-400" /><span>RuangGamer</span></h1></div>
                 <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
                     <button onClick={() => setView('dashboard')} className={`w-full text-left px-4 py-3 rounded-lg flex items-center space-x-3 ${view === 'dashboard' ? 'bg-indigo-600' : 'text-slate-400 hover:bg-slate-800'}`}><LayoutDashboard size={18} /> <span>Dashboard</span></button>
-                    <button onClick={() => setView('audit')} className={`w-full text-left px-4 py-3 rounded-lg flex items-center space-x-3 ${view === 'audit' ? 'bg-indigo-600' : 'text-slate-400 hover:bg-slate-800'}`}><CheckCircle size={18} /> <span>Audit Queue</span>{auditTasks.length > 0 && <span className="ml-auto bg-red-500 text-[10px] px-2 rounded-full">{auditTasks.length}</span>}</button>
-                    <button onClick={() => setView('withdrawals')} className={`w-full text-left px-4 py-3 rounded-lg flex items-center space-x-3 ${view === 'withdrawals' ? 'bg-indigo-600' : 'text-slate-400 hover:bg-slate-800'}`}><Wallet size={18} /> <span>Withdrawals</span></button>
+                    <button onClick={() => setView('audit')} className={`w-full text-left px-4 py-3 rounded-lg flex items-center space-x-3 ${view === 'audit' ? 'bg-indigo-600' : 'text-slate-400 hover:bg-slate-800'}`}><CheckCircle size={18} /> <span>Audit Queue</span>{auditTasks.length > 0 && <span className="ml-auto bg-red-500 text-[10px] px-2 rounded-full font-bold">{auditTasks.length}</span>}</button>
+                    <button onClick={() => setView('withdrawals')} className={`w-full text-left px-4 py-3 rounded-lg flex items-center space-x-3 ${view === 'withdrawals' ? 'bg-indigo-600' : 'text-slate-400 hover:bg-slate-800'}`}>
+                        <Wallet size={18} />
+                        <span>Withdrawals</span>
+                        {withdrawals.filter(w => w.status === 'pending').length > 0 && (
+                            <span className="ml-auto bg-orange-500 text-[10px] px-2 rounded-full font-bold">
+                                {withdrawals.filter(w => w.status === 'pending').length}
+                            </span>
+                        )}
+                    </button>
                     <button onClick={() => setView('users')} className={`w-full text-left px-4 py-3 rounded-lg flex items-center space-x-3 ${view === 'users' ? 'bg-indigo-600' : 'text-slate-400 hover:bg-slate-800'}`}><UserIcon size={18} /> <span>Users</span></button>
                     <button onClick={() => setView('tasks')} className={`w-full text-left px-4 py-3 rounded-lg flex items-center space-x-3 ${view === 'tasks' ? 'bg-indigo-600' : 'text-slate-400 hover:bg-slate-800'}`}><List size={18} /> <span>Tasks</span></button>
                     <button onClick={() => setView('activities')} className={`w-full text-left px-4 py-3 rounded-lg flex items-center space-x-3 ${view === 'activities' ? 'bg-indigo-600' : 'text-slate-400 hover:bg-slate-800'}`}><Image size={18} /> <span>Activities</span></button>
@@ -997,14 +1005,65 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                 )}
 
                 {view === 'messages' && (
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 max-w-2xl">
-                        <h3 className="font-bold mb-4">Send System Message & Money</h3>
-                        <div className="space-y-4">
-                            <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Recipient (User ID or 'all')</label><input type="text" value={msgData.userId} onChange={e => setMsgData({ ...msgData, userId: e.target.value })} className="w-full border p-2 rounded" /></div>
-                            <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Title</label><input type="text" value={msgData.title} onChange={e => setMsgData({ ...msgData, title: e.target.value })} className="w-full border p-2 rounded" /></div>
-                            <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Content</label><textarea value={msgData.content} onChange={e => setMsgData({ ...msgData, content: e.target.value })} className="w-full border p-2 rounded h-24" /></div>
-                            <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Gift Amount (Optional)</label><input type="number" value={msgData.amount} onChange={e => setMsgData({ ...msgData, amount: e.target.value })} className="w-full border p-2 rounded" /></div>
-                            <button onClick={handleSendMessage} className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-indigo-700"><Send size={16} /> Send Message</button>
+                    <div className="space-y-6 max-w-4xl">
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <h3 className="font-bold mb-4">Send System Message & Money</h3>
+                            <div className="space-y-4">
+                                <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Recipient (User ID or 'all')</label><input type="text" value={msgData.userId} onChange={e => setMsgData({ ...msgData, userId: e.target.value })} className="w-full border p-2 rounded focus:outline-none focus:border-indigo-400" /></div>
+                                <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Title</label><input type="text" value={msgData.title} onChange={e => setMsgData({ ...msgData, title: e.target.value })} className="w-full border p-2 rounded focus:outline-none focus:border-indigo-400" /></div>
+                                <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Content</label><textarea value={msgData.content} onChange={e => setMsgData({ ...msgData, content: e.target.value })} className="w-full border p-2 rounded h-24 focus:outline-none focus:border-indigo-400" /></div>
+                                <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Gift Amount (Optional)</label><div className="flex items-center gap-2"><input type="number" value={msgData.amount} onChange={e => setMsgData({ ...msgData, amount: e.target.value })} className="w-full border p-2 rounded focus:outline-none focus:border-indigo-400" /> <span className="text-slate-400 font-bold uppercase text-xs">IDR</span></div></div>
+                                <button onClick={handleSendMessage} className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-transform active:scale-95"><Send size={16} /> Send Message</button>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="p-4 border-b border-slate-100 bg-slate-50">
+                                <h3 className="font-bold text-slate-800">Messages History</h3>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-slate-50 border-b border-slate-200">
+                                        <tr>
+                                            <th className="p-4">Recipient</th>
+                                            <th className="p-4">Message</th>
+                                            <th className="p-4">Gift</th>
+                                            <th className="p-4">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {(() => {
+                                            const allMessages = users.flatMap(u => (u.messages || []).map(m => ({ ...m, userPhone: u.phone, userId: u.id })));
+                                            const sortedMessages = allMessages.sort((a, b) => b.id - a.id); // Assuming ID is incremental
+
+                                            if (sortedMessages.length === 0) return <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">No message history</td></tr>;
+
+                                            return sortedMessages.slice(0, 50).map((msg, i) => (
+                                                <tr key={i} className="hover:bg-slate-50">
+                                                    <td className="p-4">
+                                                        <div className="font-bold text-slate-700">{msg.userPhone}</div>
+                                                        <div className="text-[10px] text-slate-400">{msg.userId}</div>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="font-bold">{msg.title}</div>
+                                                        <div className="text-xs text-slate-500 line-clamp-1">{msg.content}</div>
+                                                    </td>
+                                                    <td className="p-4 font-mono font-bold text-indigo-600">
+                                                        {msg.rewardAmount > 0 ? `+${msg.rewardAmount.toLocaleString()}` : '-'}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        {msg.read ? (
+                                                            <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold">READ</span>
+                                                        ) : (
+                                                            <span className="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-full font-bold">UNREAD</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ));
+                                        })()}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 )}

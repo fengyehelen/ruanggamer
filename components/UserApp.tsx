@@ -231,6 +231,8 @@ export const UserLogin: React.FC<{ onAuth: (e: string, pw: string, isReg: boolea
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPwd, setShowPwd] = useState(false);
     const [inviteCode, setInviteCode] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [progress, setProgress] = useState(0);
 
     useEffect(() => {
         const pendingRef = localStorage.getItem('pending_referral');
@@ -241,22 +243,68 @@ export const UserLogin: React.FC<{ onAuth: (e: string, pw: string, isReg: boolea
         }
     }, []);
 
-    const handleAuth = () => {
+    const handleAuth = async () => {
         if (!email || !password) return alert("Please fill in email and password");
         if (isRegister && password !== confirmPassword) {
             return alert("Konfirmasi kata sandi tidak cocok!"); // Password confirmation doesn't match
         }
-        const error = onAuth(email, password, isRegister, inviteCode);
-        if (error) {
-            alert(error.replace(password, '***'));
-        } else {
-            // Success - clear pending referral
-            localStorage.removeItem('pending_referral');
+
+        setIsLoading(true);
+        setProgress(10);
+
+        // Start progress simulation
+        const interval = setInterval(() => {
+            setProgress(prev => {
+                if (prev >= 90) return prev;
+                return prev + Math.floor(Math.random() * 15) + 5;
+            });
+        }, 200);
+
+        try {
+            const error = await onAuth(email, password, isRegister, inviteCode);
+            clearInterval(interval);
+            setProgress(100);
+
+            if (error) {
+                setTimeout(() => {
+                    alert(error.replace(password, '***'));
+                    setIsLoading(false);
+                    setProgress(0);
+                }, 300);
+            } else {
+                // Success - clear pending referral
+                localStorage.removeItem('pending_referral');
+                // The App will redirect automatically via user state change
+            }
+        } catch (e) {
+            clearInterval(interval);
+            setIsLoading(false);
+            setProgress(0);
         }
     };
 
     return (
         <div className="min-h-screen bg-slate-900 bg-[linear-gradient(45deg,#0f172a,#1e293b,#0f172a)] animate-gradient-bg flex flex-col items-center justify-center p-6 relative overflow-hidden">
+            {/* PROGRESS MODAL */}
+            {isLoading && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900 animate-fadeIn">
+                    <div className="w-full max-w-xs text-center">
+                        <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-500/30 mb-8 mx-auto animate-pulse">
+                            <Dices size={48} className="text-white drop-shadow-md" />
+                        </div>
+                        <h2 className="text-xl font-bold text-white mb-2">{isRegister ? "Creating Account..." : "Logging In..."}</h2>
+                        <p className="text-slate-400 text-xs mb-8">Sedang menyiapkan pengalaman gaming Anda</p>
+
+                        <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden border border-white/5">
+                            <div
+                                className="h-full bg-gradient-to-r from-yellow-400 to-amber-600 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(250,204,21,0.5)]"
+                                style={{ width: `${progress}%` }}
+                            ></div>
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-2 font-mono uppercase tracking-widest">{progress}% Loaded</div>
+                    </div>
+                </div>
+            )}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-yellow-500/10 rounded-full blur-[100px] pointer-events-none"></div>
             <div className="absolute bottom-0 right-0 w-64 h-64 bg-yellow-500/5 rounded-full blur-[80px] pointer-events-none"></div>
 
@@ -565,18 +613,30 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
 
             try {
                 setIsUploading(true);
-                // Upload to Supabase Storage via Backend
+                // Step 1: Upload to Supabase Storage (Wait for this as it's the prerequisite)
                 const publicUrl = await api.uploadProof(file);
 
-                // Submit Proof with URL
-                await onSubmitProof(activeTaskId, publicUrl);
-
+                // --- OPTIMISTIC UI: START ---
+                // Step 2: Immediately show success and reset UI
+                alert("Proof uploaded successfully! Kami akan segera meninjau tugas Anda.");
+                setIsUploading(false);
+                const currentTaskId = activeTaskId;
                 setActiveTaskId(null);
                 if (fileInputRef.current) fileInputRef.current.value = '';
-                alert("Proof uploaded successfully!");
+
+                // Step 3: API call to notify backend in background
+                (async () => {
+                    try {
+                        await onSubmitProof(currentTaskId, publicUrl);
+                    } catch (error: any) {
+                        console.error("Background proof submission failed:", error);
+                        // Optional: minimal alert if critical
+                    }
+                })();
+                // --- OPTIMISTIC UI: END ---
+
             } catch (error: any) {
                 alert("Upload failed: " + error.message);
-            } finally {
                 setIsUploading(false);
             }
         }
@@ -966,7 +1026,19 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-white">{user.phone || user.id.substring(0, 8)}</h2>
-                            <div className="text-xs text-slate-400 mt-1 font-mono">ID: {user.id}</div>
+                            <div className="flex items-center gap-2 mt-1">
+                                <div className="text-xs text-slate-400 font-mono">ID: {user.id}</div>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(user.id);
+                                        alert(t.copied || "Copied!");
+                                    }}
+                                    className="p-1 hover:bg-slate-700 rounded transition-colors"
+                                    title="Copy ID"
+                                >
+                                    <Copy size={12} className="text-yellow-500" />
+                                </button>
+                            </div>
 
                             {/* Bind Phone Button (Req 6) - Below ID */}
                             {!user.phone ? (

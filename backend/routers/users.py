@@ -80,6 +80,13 @@ async def bind_bank(user_id: str, account: BankAccountCreate, db: Client = Depen
     return convert_db_user_to_response(user, db)
 
 
+@router.patch("/{user_id}/messages/read")
+async def mark_messages_as_read(user_id: str, db: Client = Depends(get_db)):
+    """将用户的所有未读消息标记为已读"""
+    db.table("messages").update({"read": True}).eq("user_id", user_id).eq("read", False).execute()
+    return {"message": "All messages marked as read"}
+
+
 @router.post("/{user_id}/withdraw", response_model=UserResponse, response_model_by_alias=True)
 async def withdraw(user_id: str, request: WithdrawRequest, db: Client = Depends(get_db)):
     """

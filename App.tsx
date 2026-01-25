@@ -21,6 +21,7 @@ const App: React.FC = () => {
     const [sort, setSort] = useState<SortOption>(SortOption.NEWEST);
     const [hasUnreadTx, setHasUnreadTx] = useState(false);
     const [hasUnreadMisi, setHasUnreadMisi] = useState(false); // NEW: For mission red dot
+    const [hasUnreadMsg, setHasUnreadMsg] = useState(false); // NEW
     const [rewardPopupTx, setRewardPopupTx] = useState<Transaction | null>(null);
 
     // System Config State
@@ -105,6 +106,10 @@ const App: React.FC = () => {
         } else {
             setHasUnreadTx(false);
         }
+
+        // 3. Check for unread messages (Direct check from user.messages)
+        const unreadCount = (u.messages || []).filter(m => !m.read).length;
+        setHasUnreadMsg(unreadCount > 0);
     };
 
     const handleCloseRewardPopup = () => {
@@ -121,6 +126,19 @@ const App: React.FC = () => {
 
     const handleClearUnreadMisi = () => {
         setHasUnreadMisi(false);
+    };
+
+    const handleMarkAllRead = async () => {
+        if (!user) return;
+        try {
+            await api.markAllMessagesRead(user.id);
+            setHasUnreadMsg(false);
+            // Refresh user data to get updated read status
+            const updatedUser = await api.getUser(user.id);
+            if (updatedUser) setUser(updatedUser);
+        } catch (e) {
+            console.error("Mark all read failed", e);
+        }
     };
 
     const handleAuth = async (email: string, pass: string, isReg: boolean, invite?: string): Promise<string | null> => {
@@ -160,50 +178,47 @@ const App: React.FC = () => {
         localStorage.removeItem('ruanggamer_session');
     };
 
-    const handleStartTask = async (platform: Platform) => {
+    const handleStartTask = (platform: Platform) => {
         if (!user) {
             window.location.hash = '#/login';
             return;
         }
-        try {
-            await api.startTask(user.id, platform.id);
-            const updatedUser = await api.getUser(user.id);
-            if (updatedUser) setUser(updatedUser);
 
-            // Set unread mission red dot
-            setHasUnreadMisi(true);
+        // --- OPTIMISTIC UI: START ---
+        // 1. Immediately show instructions
+        alert("Anda telah berpartisipasi dalam misi ini. Sistem akan segera mengalihkan Anda ke URL tujuan. Silakan kembali ke RuangGamer untuk mengambil hadiah setelah menyelesaikan misi.");
 
-            // Refresh users if admin
-            if (user?.role === 'admin') {
-                api.getAllUsers().then(res => setAllUsers(res.users));
-            }
-
-            // Req 1: First time participation popup
-            alert("Anda telah berpartisipasi dalam misi ini. Sistem akan segera mengalihkan Anda ke URL tujuan. Silakan kembali ke RuangGamer untuk mengambil hadiah setelah menyelesaikan misi.");
-
-            let url = platform.downloadLink;
-
-            if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
-                url = 'https://' + url;
-            }
-            window.open(url, '_blank');
-
-        } catch (e: any) {
-            // Req 2: Duplicate participation popup
-            const errorMsg = e.message || '';
-            if (errorMsg.includes("already started") || errorMsg.includes("Task already taken")) {
-                alert("Anda telah mengikuti misi ini, silakan periksa progresnya di daftar misi.");
-
-                let url = platform.downloadLink;
-                if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
-                    url = 'https://' + url;
-                }
-                window.open(url, '_blank');
-
-            } else {
-                alert("Gagal mengambil misi: " + errorMsg);
-            }
+        // 2. Immediately open link
+        let url = platform.downloadLink;
+        if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+            url = 'https://' + url;
         }
+        window.open(url, '_blank');
+
+        // 3. Execute API call in background
+        (async () => {
+            try {
+                await api.startTask(user.id, platform.id);
+                const updatedUser = await api.getUser(user.id);
+                if (updatedUser) setUser(updatedUser);
+
+                // Set unread mission red dot
+                setHasUnreadMisi(true);
+
+                // Refresh users if admin
+                if (user?.role === 'admin') {
+                    api.getAllUsers().then(res => setAllUsers(res.users));
+                }
+            } catch (e: any) {
+                const errorMsg = e.message || '';
+                // Only alert on real errors (not "already started")
+                if (!errorMsg.includes("already started") && !errorMsg.includes("Task already taken")) {
+                    console.error("Background task start failed:", errorMsg);
+                    // Silently fail or minimal toast if needed
+                }
+            }
+        })();
+        // --- OPTIMISTIC UI: END ---
     };
 
 
@@ -241,22 +256,50 @@ const App: React.FC = () => {
         }
     };
 
-    // NEW: Like Task Logic
-    const handleLikeTask = async (platformId: string) => {
+    // NEW: Like Task Logic (Optimistic UI)
+    const handleLikeTask = (platformId: string) => {
         if (!user) return window.location.hash = '#/login';
-        try {
-            const updatedUser = await api.likeTask(user.id, platformId);
-            setUser(updatedUser);
-            // Optimistically update platforms likes for UI immediately or re-fetch
-            const updatedPlatforms = [...platforms];
-            const idx = updatedPlatforms.findIndex(p => p.id === platformId);
-            if (idx !== -1) {
-                updatedPlatforms[idx] = { ...updatedPlatforms[idx], likes: (updatedPlatforms[idx].likes || 0) + 1 };
-                setPlatforms(updatedPlatforms);
-            }
-        } catch (e: any) {
-            console.error("Like failed", e);
+
+        // Prevent multiple likes if already liked
+        if (user.likedTaskIds?.includes(platformId)) return;
+
+        // --- OPTIMISTIC UI: START ---
+        // 1. Snapshot previous state for rollback
+        const prevUser = { ...user };
+        const prevPlatforms = [...platforms];
+
+        // 2. Update User state immediately
+        const updatedUser = {
+            ...user,
+            likedTaskIds: [...(user.likedTaskIds || []), platformId]
+        };
+        setUser(updatedUser);
+
+        // 3. Update Platforms list immediately
+        const updatedPlatforms = [...platforms];
+        const idx = updatedPlatforms.findIndex(p => p.id === platformId);
+        if (idx !== -1) {
+            updatedPlatforms[idx] = {
+                ...updatedPlatforms[idx],
+                likes: (updatedPlatforms[idx].likes || 0) + 1
+            };
+            setPlatforms(updatedPlatforms);
         }
+
+        // 4. Execute API in background
+        (async () => {
+            try {
+                const finalUserFromBackend = await api.likeTask(user.id, platformId);
+                setUser(finalUserFromBackend);
+            } catch (e: any) {
+                console.error("Background like failed:", e);
+                // Rollback on error
+                setUser(prevUser);
+                setPlatforms(prevPlatforms);
+                // alert("Gagal memberikan like. Silakan coba lagi.");
+            }
+        })();
+        // --- OPTIMISTIC UI: END ---
     };
 
     const handleSubmitProof = async (taskId: string, imgUrl: string) => {
@@ -452,7 +495,7 @@ const App: React.FC = () => {
                         lang={lang} setLang={setLang} theme={'gold'}
                         telegramLink={config.telegramLinks['id']}
                         customerServiceLink={config.customerServiceLinks['id']}
-                        hasUnreadMsg={false} hasUnreadTx={hasUnreadTx}
+                        hasUnreadMsg={hasUnreadMsg} hasUnreadTx={hasUnreadTx}
                         hasUnreadMisi={hasUnreadMisi}
                     >
                         <Outlet />
@@ -497,7 +540,7 @@ const App: React.FC = () => {
                     {/* Protected Routes (Redirect to Login if null) */}
                     <Route path="/my-tasks" element={user ? <MyTasksView user={user} t={TRANSLATIONS[lang]} onSubmitProof={handleSubmitProof} lang={lang} clearUnreadMisi={handleClearUnreadMisi} config={config} /> : <Navigate to="/login" />} />
                     <Route path="/referral" element={user ? <ReferralView user={user} users={[]} t={TRANSLATIONS[lang]} config={config} lang={lang} /> : <Navigate to="/login" />} />
-                    <Route path="/mailbox" element={user ? <MailboxView user={user} t={TRANSLATIONS[lang]} markAllRead={() => { }} /> : <Navigate to="/login" />} />
+                    <Route path="/mailbox" element={user ? <MailboxView user={user} t={TRANSLATIONS[lang]} markAllRead={handleMarkAllRead} /> : <Navigate to="/login" />} />
                     <Route path="/transactions" element={user ? <TransactionHistoryView user={user} t={TRANSLATIONS[lang]} /> : <Navigate to="/login" />} />
                 </Route>
             </Routes>

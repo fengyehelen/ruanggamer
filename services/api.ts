@@ -131,6 +131,15 @@ export const api = {
     },
 
     /**
+     * 将所有消息标记为已读
+     */
+    async markAllMessagesRead(userId: string): Promise<void> {
+        return request<void>(`/users/${userId}/messages/read`, {
+            method: 'PATCH',
+        });
+    },
+
+    /**
      * 开始任务
      */
     async startTask(userId: string, platformId: string): Promise<UserTask> {
