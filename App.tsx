@@ -14,6 +14,15 @@ import { useSupabaseRealtime } from './hooks/useSupabaseRealtime';
 import ReactPixel from 'react-facebook-pixel';
 import { useLocation } from 'react-router-dom';
 
+// Sub-component to handle route tracking within Router context
+const PixelTracker: React.FC = () => {
+    const location = useLocation();
+    useEffect(() => {
+        ReactPixel.pageView();
+    }, [location]);
+    return null;
+};
+
 const App: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
     const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -38,11 +47,6 @@ const App: React.FC = () => {
         // @ts-ignore - User requested test code
         ReactPixel.pageView({ test_event_code: 'TEST64765' });
     }, []);
-
-    const location = useLocation();
-    useEffect(() => {
-        ReactPixel.pageView();
-    }, [location]);
 
     // Load Initial Data from MockDB (Client Side)
     useEffect(() => {
@@ -414,6 +418,7 @@ const App: React.FC = () => {
 
     return (
         <Router>
+            <PixelTracker />
             {/* REWARD POPUP OVERLAY */}
             {rewardPopupTx && (
                 <RewardPopup tx={rewardPopupTx} onClose={handleCloseRewardPopup} />
