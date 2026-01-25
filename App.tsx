@@ -10,6 +10,7 @@ import {
     HomeView, TaskDetailView, MyTasksView, ProfileView, ReferralView,
     ActivityDetailView, UserLogin, MailboxView, StaticPageView, TransactionHistoryView, TasksView, RewardPopup
 } from './components/UserApp';
+import { useSupabaseRealtime } from './hooks/useSupabaseRealtime';
 
 const App: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
@@ -30,6 +31,14 @@ const App: React.FC = () => {
 
     // Load Initial Data from MockDB (Client Side)
     useEffect(() => {
+        // Capture referral code from URL if present
+        const search = window.location.hash.split('?')[1] || window.location.search.substring(1);
+        const params = new URLSearchParams(search);
+        const ref = params.get('ref');
+        if (ref) {
+            localStorage.setItem('pending_referral', ref);
+        }
+
         api.getInitialData().then(data => {
             setPlatforms(data.platforms || []);
             setActivities(data.activities || []);
@@ -255,6 +264,30 @@ const App: React.FC = () => {
     // For Admin - In this MVP we just pass empty lists or fetch specifically
     const [admins, setAdmins] = useState<Admin[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]);
+
+    // --- REALTIME SUBSCRIPTION ---
+    useSupabaseRealtime(user?.id, async (payload) => {
+        console.log('Realtime Update Received:', payload);
+
+        // Refresh user data to get full object with updated balances/tasks/messages
+        if (user?.id) {
+            const updatedUser = await api.getUser(user.id);
+            if (updatedUser) {
+                setUser(updatedUser);
+                checkUnread(updatedUser);
+            }
+        }
+
+        // If mission updated, show red dot
+        if (payload.table === 'user_tasks') {
+            setHasUnreadMisi(true);
+        }
+
+        // If admin, refresh all users list too
+        if (user?.role === 'admin') {
+            api.getAllUsers().then(res => setAllUsers(res.users));
+        }
+    });
 
     const setLang = (_l: Language) => { };
 

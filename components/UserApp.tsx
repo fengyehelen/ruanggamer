@@ -10,7 +10,7 @@ import {
     List, CheckCircle, Smartphone, Lock, MessageSquare, LogOut, QrCode,
     CreditCard, Eye, EyeOff, ArrowDown, Sparkles, Plus, ShieldCheck, Wallet, History,
     Share2, Facebook, Twitter, Link as LinkIcon, Send, MessageCircle, Dices, Palette, Mail, Volume2, Heart, HelpCircle, Info, Filter, X, Crown,
-    Image as ImageIcon, ChevronLeft, LogIn, AlertTriangle, Headset, Star, ArrowRight, BarChart2, TrendingUp, PlayCircle, Settings
+    Image as ImageIcon, ChevronLeft, LogIn, AlertTriangle, Headset, Star, ArrowRight, BarChart2, TrendingUp, PlayCircle, Settings, Download
 } from 'lucide-react';
 import Layout from './Layout';
 
@@ -228,13 +228,31 @@ export const UserLogin: React.FC<{ onAuth: (e: string, pw: string, isReg: boolea
     const [isRegister, setIsRegister] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [showPwd, setShowPwd] = useState(false);
     const [inviteCode, setInviteCode] = useState('');
 
+    useEffect(() => {
+        const pendingRef = localStorage.getItem('pending_referral');
+        if (pendingRef) {
+            setInviteCode(pendingRef);
+            // Auto switch to register if ref link is used
+            setIsRegister(true);
+        }
+    }, []);
+
     const handleAuth = () => {
         if (!email || !password) return alert("Please fill in email and password");
+        if (isRegister && password !== confirmPassword) {
+            return alert("Konfirmasi kata sandi tidak cocok!"); // Password confirmation doesn't match
+        }
         const error = onAuth(email, password, isRegister, inviteCode);
-        if (error) alert(error.replace(password, '***'));
+        if (error) {
+            alert(error.replace(password, '***'));
+        } else {
+            // Success - clear pending referral
+            localStorage.removeItem('pending_referral');
+        }
     };
 
     return (
@@ -265,10 +283,18 @@ export const UserLogin: React.FC<{ onAuth: (e: string, pw: string, isReg: boolea
                         <button onClick={() => setShowPwd(!showPwd)} className="text-slate-500 hover:text-white transition-colors">{showPwd ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                     </div>
 
+                    {/* Confirm Password (Register Only) */}
+                    {isRegister && (
+                        <div className="bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3.5 flex items-center space-x-3 focus-within:border-yellow-500/50 focus-within:bg-slate-900/80 transition-all animate-fadeIn">
+                            <ShieldCheck className="text-slate-400" size={20} />
+                            <input type={showPwd ? "text" : "password"} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Konfirmasi Kata Sandi" className="bg-transparent text-white w-full focus:outline-none placeholder:text-slate-600" />
+                        </div>
+                    )}
+
                     {isRegister && (
                         <div className="bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3.5 flex items-center space-x-3 focus-within:border-yellow-500/50 transition-all">
                             <QrCode className="text-slate-400" size={20} />
-                            <input type="text" value={inviteCode} onChange={e => setInviteCode(e.target.value)} placeholder={t.inviteCode} className="bg-transparent text-white w-full focus:outline-none placeholder:text-slate-600" />
+                            <input type="text" value={inviteCode} onChange={e => setInviteCode(e.target.value)} placeholder={`${t.inviteCode} (Opsional)`} className="bg-transparent text-white w-full focus:outline-none placeholder:text-slate-600" />
                         </div>
                     )}
                     <button onClick={handleAuth} className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 text-slate-900 font-bold py-4 rounded-xl shadow-lg shadow-amber-900/20 mt-6 hover:brightness-110 active:scale-95 transition-all uppercase tracking-wide">
@@ -671,9 +697,29 @@ export const ReferralView: React.FC<any> = ({ user, t, config, lang }) => {
         .filter((t: Transaction) => t.type === 'referral_bonus')
         .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
 
-    const refLink = `https://ruanggamer.app/?ref=${user.referralCode}`;
-    const encodedLink = encodeURIComponent(refLink);
-    const shareText = encodeURIComponent(`Gabung RuangGamer dan dapatkan cuan! Pakai kode: ${user.referralCode}`);
+    const refLink = `${window.location.origin}/#/?ref=${user.referralCode}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(refLink)}`;
+
+    const handleDownloadQR = () => {
+        window.open(qrUrl, '_blank');
+    };
+
+    const handleShare = async () => {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'RuangGamer',
+                    text: `Gabung RuangGamer dan dapatkan cuan! Gunakan kode: ${user.referralCode}`,
+                    url: refLink,
+                });
+            } catch (err) {
+                console.log('Share failed:', err);
+                copyToClipboard(refLink);
+            }
+        } else {
+            copyToClipboard(refLink);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-slate-900 text-white pb-24">
@@ -683,13 +729,29 @@ export const ReferralView: React.FC<any> = ({ user, t, config, lang }) => {
 
                 <div className="bg-slate-800/50 backdrop-blur border border-yellow-500/20 rounded-2xl p-6 mb-8 text-center shadow-lg">
                     <div className="text-xs text-slate-400 uppercase tracking-widest mb-2">{t.inviteCode}</div>
-                    <div className="text-4xl font-black text-white tracking-widest font-mono mb-6">{user.referralCode}</div>
-                    <div className="flex gap-3 justify-center">
-                        <button onClick={() => copyToClipboard(user.referralCode)} className="bg-white text-slate-900 px-6 py-2 rounded-full font-bold text-sm hover:bg-slate-200 transition-colors flex items-center gap-2">
-                            <Copy size={16} /> {t.copy} Code
+                    <div className="flex items-center justify-center gap-3 mb-6">
+                        <div className="text-4xl font-black text-white tracking-widest font-mono">{user.referralCode}</div>
+                        <button onClick={() => copyToClipboard(user.referralCode)} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors border border-white/10">
+                            <Copy size={20} className="text-yellow-500" />
                         </button>
-                        <button onClick={() => copyToClipboard(`https://ruanggamer.app/?ref=${user.referralCode}`)} className="bg-yellow-500 text-slate-900 px-6 py-2 rounded-full font-bold text-sm hover:bg-yellow-400 transition-colors flex items-center gap-2">
-                            <Share2 size={16} /> Share Link
+                    </div>
+
+                    {/* QR Code Section */}
+                    <div className="flex flex-col items-center mb-6">
+                        <div className="bg-white p-2 rounded-xl mb-3 shadow-inner">
+                            <img src={qrUrl} alt="Referral QR" className="w-40 h-40" />
+                        </div>
+                        <button onClick={handleDownloadQR} className="text-[10px] text-yellow-500 hover:text-yellow-400 font-bold flex items-center gap-1 uppercase tracking-wider">
+                            <Download size={12} /> simpan
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-2">
+                        <div className="flex-1 bg-slate-900/50 p-2.5 rounded-xl border border-slate-700 font-mono text-[10px] text-slate-500 truncate text-left">
+                            {refLink}
+                        </div>
+                        <button onClick={handleShare} className="bg-yellow-500 text-slate-900 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-yellow-400 transition-colors flex items-center gap-2 whitespace-nowrap shadow-lg shadow-yellow-500/10">
+                            <Share2 size={16} /> Bagikan
                         </button>
                     </div>
                 </div>
@@ -752,34 +814,13 @@ export const ReferralView: React.FC<any> = ({ user, t, config, lang }) => {
 
                     {/* Calculation Example */}
                     <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700 mt-6 text-sm text-slate-300">
-                        <p className="font-bold text-white mb-2 flex items-center gap-2"><Info size={16} className="text-blue-400" /> Calculation Example</p>
-                        <p className="mb-2">If your downline completes a task with <strong>Rp 100,000</strong> reward:</p>
+                        <p className="font-bold text-white mb-2 flex items-center gap-2"><Info size={16} className="text-blue-400" /> Jika downline Anda menyelesaikan tugas dengan hadiah Rp 100.000:</p>
                         <ul className="list-disc pl-5 space-y-1 text-xs">
-                            <li><strong>Level 1 (A):</strong> You get Rp 20,000</li>
-                            <li><strong>Level 2 (B):</strong> You get Rp 10,000</li>
-                            <li><strong>Level 3 (C):</strong> You get Rp 5,000</li>
-                            <li><strong>Level 4 (D):</strong> You get Rp 0</li>
+                            <li><strong>Level 1 (A):</strong> Anda mendapat Rp 20.000</li>
+                            <li><strong>Level 2 (B):</strong> Anda mendapat Rp 10.000</li>
+                            <li><strong>Level 3 (C):</strong> Anda mendapat Rp 5.000</li>
+                            <li><strong>Level 4 (D):</strong> Anda mendapat Rp 0</li>
                         </ul>
-                    </div>
-                </div>
-            </div>
-
-            <div className="px-6 py-8 bg-slate-900 rounded-t-3xl min-h-[50vh] text-slate-200 border-t border-slate-800">
-                <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Users size={20} className="text-yellow-500" /> {t.totalInvited} ({user.invitedCount})</h3>
-                <div className="space-y-4">
-                    <div className="bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-700 flex items-center gap-4">
-                        <div className="w-12 h-12 bg-slate-700 rounded-full flex items-center justify-center text-yellow-500 font-bold border border-yellow-500/20">1</div>
-                        <div>
-                            <p className="font-bold text-sm text-white">{t.howItWorks}</p>
-                            <p className="text-xs text-slate-400">{t.refStoryA} → {t.level1}</p>
-                        </div>
-                    </div>
-                    <div className="bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-700 flex items-center gap-4">
-                        <div className="w-12 h-12 bg-slate-700 rounded-full flex items-center justify-center text-yellow-500 font-bold border border-yellow-500/20">2</div>
-                        <div>
-                            <p className="font-bold text-sm text-white">{t.refStoryB}</p>
-                            <p className="text-xs text-slate-400">{t.refStoryEarn} → {t.level2}</p>
-                        </div>
                     </div>
                 </div>
             </div>
