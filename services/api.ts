@@ -107,8 +107,10 @@ export const api = {
      * 获取初始数据（平台和活动）
      */
     async getInitialData(): Promise<{ platforms: Platform[], activities: Activity[] }> {
+        console.log('Fetching initial data from:', `${API_BASE}/initial-data`);
         return request<{ platforms: Platform[], activities: Activity[] }>('/initial-data');
     },
+
 
     /**
      * 获取系统配置

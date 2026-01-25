@@ -17,6 +17,11 @@ export const useSupabaseRealtime = (
     onUpdate: (payload: { table: string; event: string; new: any; old: any }) => void
 ) => {
     useEffect(() => {
+        if (!supabase) {
+            console.warn('Supabase client not initialized. Realtime subscription skipped.');
+            return;
+        }
+
         const channelNames = config.map(c => c.channelName).join('-');
         const channel = supabase.channel(`realtime-${channelNames}`);
 
