@@ -11,6 +11,8 @@ import {
     ActivityDetailView, UserLogin, MailboxView, StaticPageView, TransactionHistoryView, TasksView, RewardPopup
 } from './components/UserApp';
 import { useSupabaseRealtime } from './hooks/useSupabaseRealtime';
+import ReactPixel from 'react-facebook-pixel';
+import { useLocation } from 'react-router-dom';
 
 const App: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
@@ -29,6 +31,18 @@ const App: React.FC = () => {
         initialBalance: {}, minWithdrawAmount: {}, telegramLinks: {}, customerServiceLinks: {}, hypeLevel: 5, helpContent: '', aboutContent: '', vipConfig: {}
     });
 
+
+    // Meta Pixel Tracking (Initialize once)
+    useEffect(() => {
+        ReactPixel.init('2606996086367085');
+        // @ts-ignore - User requested test code
+        ReactPixel.pageView({ test_event_code: 'TEST64765' });
+    }, []);
+
+    const location = useLocation();
+    useEffect(() => {
+        ReactPixel.pageView();
+    }, [location]);
 
     // Load Initial Data from MockDB (Client Side)
     useEffect(() => {
@@ -151,6 +165,12 @@ const App: React.FC = () => {
             }
 
             if (data && data.user) {
+                // Meta Pixel: CompleteRegistration
+                if (isReg) {
+                    // @ts-ignore - Following user specific requirements for tracking
+                    ReactPixel.track('CompleteRegistration', { content_name: 'New User Signup' });
+                }
+
                 setUser(data.user);
                 checkUnread(data.user);
                 localStorage.setItem('ruanggamer_session', data.user.id);
@@ -356,6 +376,27 @@ const App: React.FC = () => {
             if (oldTask?.status !== 'completed' && payload.new.status === 'completed') {
                 alert("Selamat! Hadiah tugas Anda telah masuk ke saldo.");
                 setHasUnreadMisi(true);
+
+                // --- Meta Pixel: Purchase Event ---
+                const userData = {
+                    em: updatedUser.email,
+                    external_id: updatedUser.id
+                };
+                // @ts-ignore - User requested specific parameters for tracking
+                ReactPixel.track(
+                    'Purchase',
+                    {
+                        value: Number(payload.new.reward_amount),
+                        currency: 'USD',
+                        content_ids: [payload.new.id],
+                        content_name: payload.new.task_name || 'Task Reward',
+                        content_type: 'product',
+                        user_data: userData
+                    },
+                    {
+                        eventID: payload.new.id.toString()
+                    }
+                );
             }
         }
 
