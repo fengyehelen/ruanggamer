@@ -31,6 +31,17 @@ const App: React.FC = () => {
 
     // Load Initial Data from MockDB (Client Side)
     useEffect(() => {
+        // --- ENV DIAGNOSTICS ---
+        const sUrl = import.meta.env.VITE_SUPABASE_URL;
+        const sKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        const gKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+        console.log('--- Environment Check ---');
+        console.log('Supabase URL:', sUrl ? `${sUrl.substring(0, 10)}...` : 'MISSING');
+        console.log('Supabase Key:', sKey ? 'DETECTED' : 'MISSING');
+        console.log('Gemini Key:', gKey ? 'DETECTED' : 'MISSING');
+        console.log('-------------------------');
+
         // Capture referral code from URL if present
         const search = window.location.hash.split('?')[1] || window.location.search.substring(1);
         const params = new URLSearchParams(search);
