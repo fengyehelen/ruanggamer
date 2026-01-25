@@ -161,7 +161,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         {
             channelName: 'admin-tasks-global',
             table: 'user_tasks',
-            event: 'INSERT' as const
+            event: '*' as const // Watch all events (especially status updates to 'reviewing')
         },
         {
             channelName: 'admin-transactions-global',
@@ -173,18 +173,15 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     useSupabaseRealtime(adminRealtimeConfig, async (payload) => {
         console.log('Admin Realtime Update:', payload);
 
-        // Use functional state update to avoid stale closure issues
-        // and handle immutability
-        if (payload.table === 'user_tasks' && payload.event === 'INSERT') {
-            // When a new task is submitted, we need updated users data
-            // Since tasks are inside user objects in this structure
+        // Always refresh users list to get the latest state including nested data
+        if (payload.table === 'user_tasks') {
             const res = await api.getAllUsers();
             if (res.users) setLocalUsers(res.users);
         }
 
         if (payload.table === 'transactions' && payload.event === 'INSERT') {
-            // If it's a withdrawal request, we also need updated users data
-            if (payload.new.type === 'withdraw') {
+            // Only refresh if it's a withdrawal or something affecting the dashboard
+            if (payload.new.type === 'withdraw' || payload.new.type === 'task_reward') {
                 const res = await api.getAllUsers();
                 if (res.users) setLocalUsers(res.users);
             }
