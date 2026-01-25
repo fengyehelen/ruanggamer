@@ -265,28 +265,54 @@ const App: React.FC = () => {
     const [admins, setAdmins] = useState<Admin[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]);
 
-    // --- REALTIME SUBSCRIPTION ---
-    useSupabaseRealtime(user?.id, async (payload) => {
-        console.log('Realtime Update Received:', payload);
+    // --- REALTIME SUBSCRIPTION (User Specific) ---
+    const userRealtimeConfig = React.useMemo(() => [
+        {
+            channelName: `user-tasks-${user?.id}`,
+            table: 'user_tasks',
+            event: 'UPDATE' as const,
+            filter: `user_id=eq.${user?.id}`
+        },
+        {
+            channelName: `user-messages-${user?.id}`,
+            table: 'messages',
+            event: 'INSERT' as const,
+            filter: `user_id=eq.${user?.id}`
+        },
+        {
+            channelName: `user-transactions-${user?.id}`,
+            table: 'transactions',
+            event: 'INSERT' as const,
+            filter: `user_id=eq.${user?.id}`
+        }
+    ], [user?.id]);
 
-        // Refresh user data to get full object with updated balances/tasks/messages
-        if (user?.id) {
-            const updatedUser = await api.getUser(user.id);
-            if (updatedUser) {
-                setUser(updatedUser);
-                checkUnread(updatedUser);
+    useSupabaseRealtime(userRealtimeConfig, async (payload) => {
+        console.log('User Realtime Update:', payload);
+
+        if (!user?.id) return;
+
+        // Fetch updated user data to ensure local state consistency
+        const updatedUser = await api.getUser(user.id);
+        if (!updatedUser) return;
+
+        // Logic for Task Audit Results (Need C)
+        if (payload.table === 'user_tasks' && payload.event === 'UPDATE') {
+            const oldTask = user.myTasks?.find(t => t.id === payload.new.id);
+            if (oldTask?.status !== 'completed' && payload.new.status === 'completed') {
+                alert("Selamat! Hadiah tugas Anda telah masuk ke saldo.");
+                setHasUnreadMisi(true);
             }
         }
 
-        // If mission updated, show red dot
-        if (payload.table === 'user_tasks') {
-            setHasUnreadMisi(true);
+        // Logic for New Messages (Need D)
+        if (payload.table === 'messages' && payload.event === 'INSERT') {
+            alert("Anda menerima pesan baru dari sistem.");
         }
 
-        // If admin, refresh all users list too
-        if (user?.role === 'admin') {
-            api.getAllUsers().then(res => setAllUsers(res.users));
-        }
+        // Always update user state for balance, transactions, etc.
+        setUser(updatedUser);
+        checkUnread(updatedUser);
     });
 
     const setLang = (_l: Language) => { };

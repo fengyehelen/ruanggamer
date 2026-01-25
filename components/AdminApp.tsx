@@ -9,6 +9,7 @@ import {
     LayoutDashboard, Sparkles, Wand2, Zap, Lock, Settings, Mail, Send, Trash2, Power, Plus, X, Save, BarChart3, Pin, Ban, Crown, Wallet,
     Eye
 } from 'lucide-react';
+import { useSupabaseRealtime } from '../hooks/useSupabaseRealtime';
 
 interface AdminAppProps {
     users: User[];
@@ -154,6 +155,41 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
             localStorage.setItem('ruanggamer_admin_view', view);
         }
     }, [view, session]);
+
+    // --- REALTIME SUBSCRIPTION (Admin Global) ---
+    const adminRealtimeConfig = React.useMemo(() => [
+        {
+            channelName: 'admin-tasks-global',
+            table: 'user_tasks',
+            event: 'INSERT' as const
+        },
+        {
+            channelName: 'admin-transactions-global',
+            table: 'transactions',
+            event: 'INSERT' as const
+        }
+    ], []);
+
+    useSupabaseRealtime(adminRealtimeConfig, async (payload) => {
+        console.log('Admin Realtime Update:', payload);
+
+        // Use functional state update to avoid stale closure issues
+        // and handle immutability
+        if (payload.table === 'user_tasks' && payload.event === 'INSERT') {
+            // When a new task is submitted, we need updated users data
+            // Since tasks are inside user objects in this structure
+            const res = await api.getAllUsers();
+            if (res.users) setLocalUsers(res.users);
+        }
+
+        if (payload.table === 'transactions' && payload.event === 'INSERT') {
+            // If it's a withdrawal request, we also need updated users data
+            if (payload.new.type === 'withdraw') {
+                const res = await api.getAllUsers();
+                if (res.users) setLocalUsers(res.users);
+            }
+        }
+    });
 
     const checkApiKey = async () => {
         // @ts-ignore
