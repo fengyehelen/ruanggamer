@@ -171,17 +171,21 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     ], []);
 
     useSupabaseRealtime(adminRealtimeConfig, async (payload) => {
-        console.log('Admin Realtime Update:', payload);
+        console.log('--- ADMIN REALTIME EVENT ---', payload.table, payload.event);
 
         // Always refresh users list to get the latest state including nested data
         if (payload.table === 'user_tasks') {
+            console.log('User Task activity detected! Refreshing users...');
             const res = await api.getAllUsers();
-            if (res.users) setLocalUsers(res.users);
+            if (res.users) {
+                setLocalUsers(res.users);
+                console.log('Dashboard data updated.');
+            }
         }
 
         if (payload.table === 'transactions' && payload.event === 'INSERT') {
-            // Only refresh if it's a withdrawal or something affecting the dashboard
             if (payload.new.type === 'withdraw' || payload.new.type === 'task_reward') {
+                console.log('Transaction detected! Refreshing...');
                 const res = await api.getAllUsers();
                 if (res.users) setLocalUsers(res.users);
             }
