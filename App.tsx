@@ -41,12 +41,16 @@ const App: React.FC = () => {
     });
 
 
-    // Meta Pixel Tracking (Initialize once)
+    // Meta Pixel Tracking (Initialize and handle Advanced Matching)
     useEffect(() => {
-        ReactPixel.init('2606996086367085');
-        // @ts-ignore - User requested test code
+        const advancedMatching = user ? { em: user.email, external_id: user.id } : undefined;
+        // @ts-ignore - Following user data mapping requirements
+        ReactPixel.init('2606996086367085', advancedMatching);
+
+        // As per instruction: trigger PageView after init with test code
+        // @ts-ignore
         ReactPixel.pageView({ test_event_code: 'TEST64765' });
-    }, []);
+    }, [user?.id]);
 
     // Load Initial Data from MockDB (Client Side)
     useEffect(() => {
