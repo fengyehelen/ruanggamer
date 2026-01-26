@@ -391,7 +391,7 @@ const App: React.FC = () => {
                     'Purchase',
                     {
                         value: Number(payload.new.reward_amount),
-                        currency: 'USD',
+                        currency: 'IDR',
                         content_ids: [payload.new.id],
                         content_name: payload.new.task_name || 'Task Reward',
                         content_type: 'product',
