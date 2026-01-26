@@ -11,6 +11,7 @@ import {
     ActivityDetailView, UserLogin, MailboxView, StaticPageView, TransactionHistoryView, TasksView, RewardPopup
 } from './components/UserApp';
 import { useSupabaseRealtime } from './hooks/useSupabaseRealtime';
+import InstallAppButton from './components/InstallAppButton';
 import ReactPixel from 'react-facebook-pixel';
 import { useLocation } from 'react-router-dom';
 
@@ -422,6 +423,7 @@ const App: React.FC = () => {
 
     return (
         <Router>
+            <InstallAppButton />
             <PixelTracker />
             {/* REWARD POPUP OVERLAY */}
             {rewardPopupTx && (
