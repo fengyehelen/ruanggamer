@@ -106,13 +106,6 @@ const InstallAppButton: React.FC = () => {
                                         Geser ke bawah dan pilih menu <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-700 text-white mx-1"><SquarePlus size={14} /> Tambah ke Utama</span>.
                                     </p>
                                 </div>
-
-                                <div className="flex items-start gap-4">
-                                    <div className="w-8 h-8 rounded-full bg-yellow-500 text-slate-900 font-bold flex items-center justify-center flex-shrink-0">3</div>
-                                    <p className="text-slate-300 text-sm leading-relaxed">
-                                        Klik <span className="font-bold text-yellow-500 underline mx-1">Tambah</span> di pojok kanan atas.
-                                    </p>
-                                </div>
                             </div>
 
                             <button
