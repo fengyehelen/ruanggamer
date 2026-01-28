@@ -167,7 +167,7 @@ async def audit_task(req: AuditTaskRequest, db: Client = Depends(get_db)):
             
             # 2. 更新用户余额
             # 获取当前余额
-            user_res = db.table("users").select("balance, total_earnings").eq("id", req.userId).execute()
+            user_res = db.table("users").select("id, email, balance, total_earnings, referrer_id").eq("id", req.userId).execute()
             if user_res.data:
                 user = user_res.data[0]
                 new_balance = float(user["balance"]) + float(amount)
@@ -186,6 +186,46 @@ async def audit_task(req: AuditTaskRequest, db: Client = Depends(get_db)):
                     "description": "Task Reward",
                     "status": "success"
                 }).execute()
+
+                # --- NEW: 3-Level Referral Commission ---
+                referrer_id = user.get("referrer_id")
+                # Level ratios: 1 (20%), 2 (10%), 3 (5%)
+                commission_rates = [0.20, 0.10, 0.05]
+                current_downline_email = user.get("email") or req.userId
+
+                for i, rate in enumerate(commission_rates):
+                    if not referrer_id:
+                        break
+                    
+                    # Fetch current referrer
+                    ref_res = db.table("users").select("id, balance, total_earnings, referrer_id").eq("id", referrer_id).execute()
+                    if not ref_res.data:
+                        break
+                    
+                    referrer = ref_res.data[0]
+                    commission = float(amount) * rate
+                    
+                    if commission > 0:
+                        # Update balance
+                        new_ref_balance = float(referrer["balance"]) + commission
+                        new_ref_earnings = float(referrer["total_earnings"]) + commission
+                        db.table("users").update({
+                            "balance": new_ref_balance,
+                            "total_earnings": new_ref_earnings
+                        }).eq("id", referrer["id"]).execute()
+                        
+                        # Log transaction
+                        level = i + 1
+                        db.table("transactions").insert({
+                            "user_id": referrer["id"],
+                            "type": "referral_bonus",
+                            "amount": commission,
+                            "description": f"Komisi Level {level} dari {current_downline_email}",
+                            "status": "success"
+                        }).execute()
+                    
+                    # Move to next parent
+                    referrer_id = referrer.get("referrer_id")
     
     return {"message": "Audit processed"}
 
