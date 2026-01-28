@@ -281,16 +281,18 @@ class VipTier(BaseModel):
 # 系统配置
 # ============================================
 
+from typing import Any
+
 class SystemConfig(BaseModel):
-    initial_balance: dict[str, float] = Field(default_factory=dict, alias="initialBalance")
-    min_withdraw_amount: dict[str, float] = Field(default_factory=dict, alias="minWithdrawAmount")
-    telegram_links: dict[str, str] = Field(default_factory=dict, alias="telegramLinks")
-    customer_service_links: dict[str, str] = Field(default_factory=dict, alias="customerServiceLinks")
+    initial_balance: Any = Field(default_factory=dict, alias="initialBalance")
+    min_withdraw_amount: Any = Field(default_factory=dict, alias="minWithdrawAmount")
+    telegram_links: Any = Field(default_factory=dict, alias="telegramLinks")
+    customer_service_links: Any = Field(default_factory=dict, alias="customerServiceLinks")
     hype_level: int = Field(5, alias="hypeLevel")
     help_content: str = Field("", alias="helpContent")
     about_content: str = Field("", alias="aboutContent")
-    vip_config: dict[str, list[VipTier]] = Field(default_factory=dict, alias="vipConfig")
-    misi_example_image: dict[str, str] = Field(default_factory=dict, alias="misiExampleImage")
+    vip_config: Any = Field(default_factory=dict, alias="vipConfig")
+    misi_example_image: Any = Field(default_factory=dict, alias="misiExampleImage")
 
 
     model_config = ConfigDict(

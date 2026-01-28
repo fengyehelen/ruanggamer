@@ -353,19 +353,19 @@ const App: React.FC = () => {
         {
             channelName: `user-tasks-${user?.id}`,
             table: 'user_tasks',
-            event: 'UPDATE' as const,
+            event: '*' as const,
             filter: `user_id=eq.${user?.id}`
         },
         {
             channelName: `user-messages-${user?.id}`,
             table: 'messages',
-            event: 'INSERT' as const,
+            event: '*' as const,
             filter: `user_id=eq.${user?.id}`
         },
         {
             channelName: `user-transactions-${user?.id}`,
             table: 'transactions',
-            event: 'INSERT' as const,
+            event: '*' as const,
             filter: `user_id=eq.${user?.id}`
         }
     ], [user?.id]);
@@ -379,7 +379,7 @@ const App: React.FC = () => {
         const updatedUser = await api.getUser(user.id);
         if (!updatedUser) return;
 
-        // Logic for Task Audit Results (Need C)
+        // Logic for Task Audit Results
         if (payload.table === 'user_tasks' && payload.event === 'UPDATE') {
             const oldTask = user.myTasks?.find(t => t.id === payload.new.id);
             if (oldTask?.status !== 'completed' && payload.new.status === 'completed') {
@@ -406,10 +406,22 @@ const App: React.FC = () => {
                         eventID: payload.new.id.toString()
                     }
                 );
+            } else if (oldTask?.status !== 'rejected' && payload.new.status === 'rejected') {
+                alert(`Tugas "${payload.new.platform_name}" ditolak. Alasan: ${payload.new.reject_reason || 'Tidak ada alasan'}`);
             }
         }
 
-        // Logic for New Messages (Need D)
+        // Logic for Transaction Status Updates (e.g. Withdrawal Success)
+        if (payload.table === 'transactions' && payload.event === 'UPDATE') {
+            const oldTx = user.transactions?.find(tx => tx.id === payload.new.id);
+            if (oldTx?.status === 'pending' && payload.new.status === 'success') {
+                alert(`Penarikan ${payload.new.amount} berhasil diproses.`);
+            } else if (oldTx?.status === 'pending' && payload.new.status === 'failed') {
+                alert(`Penarikan ${payload.new.amount} gagal.`);
+            }
+        }
+
+        // Logic for New Messages
         if (payload.table === 'messages' && payload.event === 'INSERT') {
             alert("Anda menerima pesan baru dari sistem.");
         }
@@ -539,7 +551,7 @@ const App: React.FC = () => {
 
                 {/* Login Route */}
                 <Route path="/login" element={
-                    !user ? <UserLogin onAuth={handleAuth as any} t={TRANSLATIONS[lang]} lang={lang} /> : <Navigate to="/" />
+                    !user ? <UserLogin onAuth={handleAuth as any} t={TRANSLATIONS[lang]} lang={lang} customerServiceLink={config.customerServiceLinks['id']} /> : <Navigate to="/" />
                 } />
 
                 <Route element={
@@ -581,7 +593,10 @@ const App: React.FC = () => {
                         <ProfileView
                             user={user} t={TRANSLATIONS[lang]} logout={handleLogout}
                             lang={lang} onBindCard={handleBindCard} onWithdraw={handleWithdraw}
-                            toggleTheme={() => { }} minWithdraw={config.minWithdrawAmount['id'] || 50000}
+                            toggleTheme={() => { }} minWithdraw={(() => {
+                                const val = config.minWithdrawAmount;
+                                return typeof val === 'object' ? (val.id || val.value || 50000) : (Number(val) || 50000);
+                            })()}
                             clearUnreadTx={handleClearUnreadTx} config={config}
                             onBindPhone={handleBindPhone}
                         />

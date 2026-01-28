@@ -52,8 +52,10 @@ async def get_config(db: Client = Depends(get_db)):
         
         if key == "initial_balance":
             config["initialBalance"] = value
-        elif key == "min_withdraw_amount":
-            config["minWithdrawAmount"] = value
+        elif key in ["min_withdraw_amount", "min_withdrawal"]:
+            # 如果两个都有，优先使用 min_withdrawal
+            if key == "min_withdrawal" or "minWithdrawAmount" not in config or not config["minWithdrawAmount"]:
+                config["minWithdrawAmount"] = value
         elif key == "telegram_links":
             config["telegramLinks"] = value
         elif key == "customer_service_links":

@@ -22,6 +22,12 @@ export const useSupabaseRealtime = (
             return;
         }
 
+        // Only subscribe if we have valid configs and no undefined values (e.g. user not logged in)
+        const isValid = config.length > 0 && config.every(c => c.channelName && !c.channelName.includes('undefined'));
+        if (!isValid) {
+            return;
+        }
+
         const channelNames = config.map(c => c.channelName).join('-');
         const channel = supabase.channel(`realtime-${channelNames}`);
 
@@ -47,12 +53,16 @@ export const useSupabaseRealtime = (
 
         channel.subscribe((status) => {
             if (status === 'SUBSCRIBED') {
-                console.log(`Successfully subscribed to realtime channel: ${channelNames}`);
+                console.log(`[Realtime] Subscribed: ${channelNames}`);
+            } else if (status === 'CLOSED') {
+                console.log(`[Realtime] Closed: ${channelNames}`);
+            } else if (status === 'CHANNEL_ERROR') {
+                console.error(`[Realtime] Error: ${channelNames}`);
             }
         });
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [JSON.stringify(config)]); // Use stringified config as dependency
+    }, [JSON.stringify(config)]);
 };

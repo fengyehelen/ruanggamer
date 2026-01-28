@@ -224,7 +224,7 @@ export const TransactionHistoryView: React.FC<{ user: User; t: any }> = ({ user,
 };
 
 // --- USER LOGIN ---
-export const UserLogin: React.FC<{ onAuth: (e: string, pw: string, isReg: boolean, invite?: string) => string | null; t: any; lang: Language }> = ({ onAuth, t, lang }) => {
+export const UserLogin: React.FC<{ onAuth: (e: string, pw: string, isReg: boolean, invite?: string) => string | null; t: any; lang: Language; customerServiceLink?: string }> = ({ onAuth, t, lang, customerServiceLink }) => {
     const [isRegister, setIsRegister] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -283,8 +283,20 @@ export const UserLogin: React.FC<{ onAuth: (e: string, pw: string, isReg: boolea
         }
     };
 
+    const handleCS = () => {
+        if (customerServiceLink) window.open(customerServiceLink, '_blank');
+        else alert("Hubungi CS via Telegram");
+    };
+
     return (
         <div className="min-h-screen bg-slate-900 bg-[linear-gradient(45deg,#0f172a,#1e293b,#0f172a)] animate-gradient-bg flex flex-col items-center justify-center p-6 relative overflow-hidden">
+            {/* Customer Service Button */}
+            <button
+                onClick={handleCS}
+                className="absolute top-6 right-6 p-3 rounded-2xl bg-slate-800/80 backdrop-blur border border-yellow-500/20 text-yellow-500 shadow-xl hover:bg-slate-700 transition-all z-20 active:scale-95"
+            >
+                <Headset size={24} />
+            </button>
             {/* PROGRESS MODAL */}
             {isLoading && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900 animate-fadeIn">
@@ -940,6 +952,7 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
     // Withdraw State
     const [wdAmount, setWdAmount] = useState('');
     const [selectedAccId, setSelectedAccId] = useState('');
+    const [minWithdrawal, setMinWithdrawal] = useState<number>(50000);
 
     useEffect(() => {
         if (location.state?.openTransactions) {
@@ -947,6 +960,21 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
             // Clear unread indicator when navigating to history via notification
             clearUnreadTx();
         }
+
+        // --- Step 1: Fetch Dynamic Config ---
+        api.getConfig().then(cfg => {
+            if (cfg && cfg.minWithdrawAmount) {
+                const val = cfg.minWithdrawAmount;
+                // Handle different potential formats: {"id": X}, {"value": X}, or just X
+                const valNum = typeof val === 'object'
+                    ? (val.id !== undefined ? val.id : (val.value !== undefined ? val.value : 50000))
+                    : (Number(val) || 50000);
+                setMinWithdrawal(Number(valNum));
+            }
+        }).catch(err => {
+            console.error("Failed to fetch min withdrawal config:", err);
+            setMinWithdrawal(50000); // Fallback
+        });
     }, [location.state]);
 
     const handleBindPhoneSubmit = () => {
@@ -974,7 +1002,7 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
             return;
         }
         if (!user.bankAccounts || user.bankAccounts.length === 0) {
-            alert(`Minimum withdrawal is ${formatMoney(config.minWithdrawAmount['id'] || 50000, 'Rp')}. Please bind a bank account first.`);
+            alert(`Minimum penarikan adalah ${formatMoney(minWithdrawal, 'Rp')}. Silakan ikat akun bank terlebih dahulu.`);
             setIsBindingCard(true);
             return;
         }
@@ -985,8 +1013,10 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
 
     const handleWithdrawSubmit = () => {
         const amount = parseInt(wdAmount);
-        if (!amount || amount < (config.minWithdrawAmount['id'] || 50000)) {
-            return alert(`Minimum withdrawal is ${formatMoney(config.minWithdrawAmount['id'] || 50000, 'Rp')}`);
+
+        // --- Step 2: Front-end Form Validation ---
+        if (!amount || amount < minWithdrawal) {
+            return alert(`Batas penarikan minimum adalah ${formatMoney(minWithdrawal, 'Rp')}`);
         }
         if (!selectedAccId) return alert("Select an account");
         onWithdraw(amount, selectedAccId);
@@ -1298,7 +1328,7 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
                 <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6 backdrop-blur-sm animate-entry">
                     <div className="bg-slate-800 w-full max-w-sm p-6 rounded-2xl shadow-2xl border border-slate-700">
                         <h3 className="text-white font-bold mb-1 text-center text-lg">Withdraw Funds</h3>
-                        <p className="text-slate-400 text-xs text-center mb-6">Min Withdraw: {formatMoney(config.minWithdrawAmount['id'] || 50000, 'Rp')}</p>
+                        <p className="text-slate-400 text-[10px] text-center mb-6">Penarikan Minimum: <span className="text-yellow-500 font-bold">{formatMoney(minWithdrawal, 'Rp')}</span></p>
 
                         <div className="space-y-4">
                             <div>
@@ -1313,7 +1343,7 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase ml-1">Amount (IDR)</label>
                                 <div className="relative">
-                                    <input type="number" value={wdAmount} onChange={e => setWdAmount(e.target.value)} placeholder="50000" className="w-full bg-slate-900 border border-slate-600 text-white p-3 pl-10 rounded-xl mt-1 focus:border-yellow-500 outline-none font-mono font-bold" />
+                                    <input type="number" value={wdAmount} onChange={e => setWdAmount(e.target.value)} placeholder={minWithdrawal.toString()} className="w-full bg-slate-900 border border-slate-600 text-white p-3 pl-10 rounded-xl mt-1 focus:border-yellow-500 outline-none font-mono font-bold" />
                                     <span className="absolute left-3 top-4 text-slate-500 font-bold">Rp</span>
                                 </div>
                                 <div className="flex justify-end mt-1">

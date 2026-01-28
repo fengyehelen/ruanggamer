@@ -100,13 +100,25 @@ async def withdraw(user_id: str, request: WithdrawRequest, db: Client = Depends(
     user = user_result.data[0]
     
     # 获取最低提现金额配置
-    config_result = db.table("system_config").select("value").eq("key", "min_withdraw_amount").execute()
+    # 优先检查用户提到的 min_withdrawal，兼容旧的 min_withdraw_amount
+    config_result = db.table("system_config").select("key, value").in_("key", ["min_withdrawal", "min_withdraw_amount"]).execute()
+    
     min_withdraw = 50000  # 默认值
     if config_result.data:
-        min_config = config_result.data[0]["value"]
-        min_withdraw = min_config.get("id", 50000)
+        # 按照优先级查找
+        configs = {item["key"]: item["value"] for item in config_result.data}
+        val_obj = configs.get("min_withdrawal") or configs.get("min_withdraw_amount")
+        if val_obj:
+            # 兼容 {"id": 100000} 这种奇怪的格式，或者直接是数字
+            if isinstance(val_obj, dict):
+                min_withdraw = val_obj.get("id") or val_obj.get("value") or 50000
+            else:
+                try:
+                    min_withdraw = float(val_obj)
+                except:
+                    min_withdraw = 50000
     
-    # 验证
+    # 验证最低提现金额
     if request.amount < min_withdraw:
         raise HTTPException(status_code=400, detail=f"Minimum withdrawal is {min_withdraw}")
     
