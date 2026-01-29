@@ -7,9 +7,10 @@ import { api } from '../services/api';
 import {
     Shield, CheckCircle, User as UserIcon, List, Image, Key, LogOut, ArrowLeft,
     LayoutDashboard, Sparkles, Wand2, Zap, Lock, Settings, Mail, Send, Trash2, Power, Plus, X, Save, BarChart3, Pin, Ban, Crown, Wallet,
-    Eye, Info
+    Eye, Info, Volume2, VolumeX
 } from 'lucide-react';
 import { useSupabaseRealtime } from '../hooks/useSupabaseRealtime';
+import NotificationSoundPlayer from './NotificationSoundPlayer';
 
 interface AdminAppProps {
     users: User[];
@@ -77,6 +78,22 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     const [auditTab, setAuditTab] = useState<'queue' | 'history'>('queue');
     const [hasApiKey, setHasApiKey] = useState(false);
     const [imageModalUrl, setImageModalUrl] = useState<string | null>(null);
+
+    // Sound Notification State
+    const [soundEnabled, setSoundEnabled] = useState(() => {
+        return localStorage.getItem('admin_sound_enabled') !== 'false';
+    });
+
+    const toggleSound = () => {
+        const newState = !soundEnabled;
+        setSoundEnabled(newState);
+        localStorage.setItem('admin_sound_enabled', String(newState));
+
+        // Optional: Play a tiny beep or interaction to unlock AudioContext if turning ON
+        if (newState) {
+            new Audio('/notification.mp3').play().catch(() => { });
+        }
+    };
 
     // Local state for admins (fetching from backend)
     const [localAdmins, setLocalAdmins] = useState<Admin[]>([]);
@@ -521,7 +538,24 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
             </aside>
 
             <main className="flex-1 ml-64 p-8 overflow-y-auto">
-                <header className="flex justify-between items-center mb-8"><h2 className="text-2xl font-bold text-slate-800 capitalize">{view} Management</h2><div className="text-right"><p className="text-sm font-bold text-slate-800">{session.username}</p><p className="text-xs text-slate-500 uppercase">{session.role}</p></div></header>
+                <header className="flex justify-between items-center mb-8">
+                    <h2 className="text-2xl font-bold text-slate-800 capitalize">{view} Management</h2>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={toggleSound}
+                            className={`p-2 rounded-full transition-all ${soundEnabled ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100' : 'text-slate-400 hover:bg-slate-100'}`}
+                            title={soundEnabled ? "Mute Notifications" : "Enable Sound Notifications"}
+                        >
+                            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+                        </button>
+                        <div className="text-right">
+                            <p className="text-sm font-bold text-slate-800">{session.username}</p>
+                            <p className="text-xs text-slate-500 uppercase">{session.role}</p>
+                        </div>
+                    </div>
+                </header>
+
+                <NotificationSoundPlayer enabled={soundEnabled} />
 
                 {view === 'dashboard' && (
                     <div className="grid grid-cols-3 gap-6">
