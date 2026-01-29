@@ -14,6 +14,7 @@ import { useSupabaseRealtime } from './hooks/useSupabaseRealtime';
 import InstallAppButton from './components/InstallAppButton';
 import ReactPixel from 'react-facebook-pixel';
 import { useLocation } from 'react-router-dom';
+import FloatingCS from './components/FloatingCS';
 
 // Sub-component to handle route tracking within Router context
 const PixelTracker: React.FC = () => {
@@ -442,6 +443,8 @@ const App: React.FC = () => {
             {rewardPopupTx && (
                 <RewardPopup tx={rewardPopupTx} onClose={handleCloseRewardPopup} />
             )}
+
+            <FloatingCS link={config.customerServiceLinks['id']} />
 
             <Routes>
                 {/* Admin Route */}
