@@ -107,6 +107,7 @@ export interface Activity {
   content: string;
   link: string;
   active: boolean;
+  isPinned?: boolean;
   showPopup?: boolean;
   targetCountries: Language[];
 }

@@ -115,7 +115,7 @@ async def get_tasks(db: Client = Depends(get_db)):
     """
     获取所有平台/任务列表
     """
-    result = db.table("platforms").select("*").eq("status", "online").execute()
+    result = db.table("platforms").select("*").eq("status", "online").order("is_pinned", desc=True).order("created_at", desc=True).execute()
     
     return [convert_db_platform(p) for p in (result.data or [])]
 

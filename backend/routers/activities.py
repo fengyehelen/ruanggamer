@@ -43,6 +43,7 @@ def convert_db_activity(a: dict) -> dict:
         "content": a.get("content"),
         "link": a.get("link"),
         "active": a.get("active", True),
+        "isPinned": a.get("is_pinned", False),
         "showPopup": a.get("show_popup", False),
         "targetCountries": a.get("target_countries") or ["id"]
     }

@@ -327,6 +327,21 @@ class WithdrawRequest(BaseModel):
     )
 
 
+class AdminMessageResponse(Message):
+    user_id: str = Field(..., alias="userId")
+    user_phone: Optional[str] = Field(None, alias="userPhone")
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        from_attributes=True
+    )
+
+
+class PaginatedMessagesResponse(BaseModel):
+    messages: list[AdminMessageResponse]
+    total: int
+
+
 class ErrorResponse(BaseModel):
     error: str
     detail: Optional[str] = None

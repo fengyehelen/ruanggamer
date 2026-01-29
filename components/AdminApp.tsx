@@ -7,7 +7,7 @@ import { api } from '../services/api';
 import {
     Shield, CheckCircle, User as UserIcon, List, Image, Key, LogOut, ArrowLeft,
     LayoutDashboard, Sparkles, Wand2, Zap, Lock, Settings, Mail, Send, Trash2, Power, Plus, X, Save, BarChart3, Pin, Ban, Crown, Wallet,
-    Eye
+    Eye, Info
 } from 'lucide-react';
 import { useSupabaseRealtime } from '../hooks/useSupabaseRealtime';
 
@@ -115,6 +115,11 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     const [msgData, setMsgData] = useState({ userId: 'all', title: '', content: '', amount: '0' });
     const [userSort, setUserSort] = useState<'reg' | 'bal' | 'earnings'>('reg');
     const [userSearch, setUserSearch] = useState(''); // 用户搜索关键词（邮箱/UID/手机号）
+    const [msgSearch, setMsgSearch] = useState('');
+    const [msgPage, setMsgPage] = useState(1);
+    const [msgTotal, setMsgTotal] = useState(0);
+    const [adminMessages, setAdminMessages] = useState<any[]>([]);
+    const msgPageSize = 20;
 
     useEffect(() => { checkApiKey(); }, []);
 
@@ -148,6 +153,22 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         };
         loadInitData();
     }, []); // Run on mount
+
+    // Fetch paginated messages
+    useEffect(() => {
+        if (view === 'messages') {
+            const fetchMessages = async () => {
+                try {
+                    const res = await api.getAdminMessages(msgPage, msgPageSize, msgSearch);
+                    setAdminMessages(res.messages);
+                    setMsgTotal(res.total);
+                } catch (e) {
+                    console.error("Failed to fetch messages", e);
+                }
+            };
+            fetchMessages();
+        }
+    }, [view, msgPage, msgSearch]);
 
     // Save view state when it changes
     useEffect(() => {
@@ -569,6 +590,35 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                         ));
                                     })()}
                                 </div>
+
+                                <div className="space-y-6">
+                                    <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                                        <div className="flex items-center gap-2 mb-4 text-slate-800">
+                                            <Info size={18} className="text-indigo-600" />
+                                            <h4 className="font-bold">Content Management</h4>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">Help Center Content (Bantuan)</label>
+                                                <textarea
+                                                    value={props.config.helpContent}
+                                                    onChange={e => props.updateConfig({ ...props.config, helpContent: e.target.value })}
+                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    placeholder="Enter help page content..."
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">About Us Content (Tentang Kami)</label>
+                                                <textarea
+                                                    value={props.config.aboutContent}
+                                                    onChange={e => props.updateConfig({ ...props.config, aboutContent: e.target.value })}
+                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    placeholder="Enter about us content..."
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-8">
@@ -631,6 +681,35 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                             >×</button>
                                         </div>
                                     )}
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                                        <div className="flex items-center gap-2 mb-4 text-slate-800">
+                                            <Info size={18} className="text-indigo-600" />
+                                            <h4 className="font-bold">Content Management</h4>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">Help Center Content (Bantuan)</label>
+                                                <textarea
+                                                    value={props.config.helpContent}
+                                                    onChange={e => props.updateConfig({ ...props.config, helpContent: e.target.value })}
+                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    placeholder="Enter help page content..."
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">About Us Content (Tentang Kami)</label>
+                                                <textarea
+                                                    value={props.config.aboutContent}
+                                                    onChange={e => props.updateConfig({ ...props.config, aboutContent: e.target.value })}
+                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    placeholder="Enter about us content..."
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -939,12 +1018,41 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                     </div>
 
                                 </div>
+
+                                <div className="space-y-6">
+                                    <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                                        <div className="flex items-center gap-2 mb-4 text-slate-800">
+                                            <Info size={18} className="text-indigo-600" />
+                                            <h4 className="font-bold">Content Management</h4>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">Help Center Content (Bantuan)</label>
+                                                <textarea
+                                                    value={props.config.helpContent}
+                                                    onChange={e => props.updateConfig({ ...props.config, helpContent: e.target.value })}
+                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    placeholder="Enter help page content..."
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">About Us Content (Tentang Kami)</label>
+                                                <textarea
+                                                    value={props.config.aboutContent}
+                                                    onChange={e => props.updateConfig({ ...props.config, aboutContent: e.target.value })}
+                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    placeholder="Enter about us content..."
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end"><button onClick={publishTask} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 flex items-center gap-2 transition-transform hover:-translate-y-1 active:scale-95"><Save size={18} /> {editingTaskId ? 'Update Task' : 'Publish Task'}</button></div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-3">
-                            {(props.tasks || []).map(t => (
+                            {(props.tasks || []).sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0)).map(t => (
                                 <div key={t.id} className="bg-white p-4 rounded-lg border border-slate-200 flex justify-between items-center hover:shadow-md transition-shadow">
                                     <div className="flex items-center gap-4">
                                         <img src={t.logoUrl || ''} className="w-12 h-12 rounded-lg bg-slate-100 object-cover" />
@@ -986,6 +1094,35 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                 <div className="space-y-4">
                                     <div><label className="text-xs font-bold uppercase text-slate-500">Content</label><textarea value={actContent} onChange={e => setActContent(e.target.value)} className="w-full border p-2 rounded-lg mt-1 h-32" /></div>
                                 </div>
+
+                                <div className="space-y-6">
+                                    <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                                        <div className="flex items-center gap-2 mb-4 text-slate-800">
+                                            <Info size={18} className="text-indigo-600" />
+                                            <h4 className="font-bold">Content Management</h4>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">Help Center Content (Bantuan)</label>
+                                                <textarea
+                                                    value={props.config.helpContent}
+                                                    onChange={e => props.updateConfig({ ...props.config, helpContent: e.target.value })}
+                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    placeholder="Enter help page content..."
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">About Us Content (Tentang Kami)</label>
+                                                <textarea
+                                                    value={props.config.aboutContent}
+                                                    onChange={e => props.updateConfig({ ...props.config, aboutContent: e.target.value })}
+                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    placeholder="Enter about us content..."
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <div className="mt-6 flex justify-end"><button onClick={publishActivity} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2"><Save size={18} /> Publish Activity</button></div>
                         </div>
@@ -1018,8 +1155,20 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                         </div>
 
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                            <div className="p-4 border-b border-slate-100 bg-slate-50">
-                                <h3 className="font-bold text-slate-800">Messages History</h3>
+                            <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                                <h3 className="font-bold text-slate-800">Messages History ({msgTotal})</h3>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            placeholder="Search phone/title/uid..."
+                                            value={msgSearch}
+                                            onChange={e => { setMsgSearch(e.target.value); setMsgPage(1); }}
+                                            className="pl-8 pr-4 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none w-64"
+                                        />
+                                        <Info size={14} className="absolute left-2.5 top-2 text-slate-400" />
+                                    </div>
+                                </div>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm">
@@ -1032,21 +1181,19 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {(() => {
-                                            const allMessages = users.flatMap(u => (u.messages || []).map(m => ({ ...m, userPhone: u.phone, userId: u.id })));
-                                            const sortedMessages = allMessages.sort((a, b) => b.id - a.id); // Assuming ID is incremental
-
-                                            if (sortedMessages.length === 0) return <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">No message history</td></tr>;
-
-                                            return sortedMessages.slice(0, 50).map((msg, i) => (
+                                        {adminMessages.length === 0 ? (
+                                            <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">No message history found</td></tr>
+                                        ) : (
+                                            adminMessages.map((msg, i) => (
                                                 <tr key={i} className="hover:bg-slate-50">
                                                     <td className="p-4">
-                                                        <div className="font-bold text-slate-700">{msg.userPhone}</div>
+                                                        <div className="font-bold text-slate-700">{msg.userPhone || 'System/All'}</div>
                                                         <div className="text-[10px] text-slate-400">{msg.userId}</div>
                                                     </td>
                                                     <td className="p-4">
                                                         <div className="font-bold">{msg.title}</div>
                                                         <div className="text-xs text-slate-500 line-clamp-1">{msg.content}</div>
+                                                        <div className="text-[9px] text-slate-300 mt-1">{new Date(msg.date).toLocaleString()}</div>
                                                     </td>
                                                     <td className="p-4 font-mono font-bold text-indigo-600">
                                                         {msg.rewardAmount > 0 ? `+${msg.rewardAmount.toLocaleString()}` : '-'}
@@ -1059,11 +1206,35 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                                         )}
                                                     </td>
                                                 </tr>
-                                            ));
-                                        })()}
+                                            ))
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
+
+                            {msgTotal > msgPageSize && (
+                                <div className="p-4 flex items-center justify-between bg-slate-50 border-t border-slate-100">
+                                    <p className="text-xs text-slate-500">
+                                        Showing {((msgPage - 1) * msgPageSize) + 1} to {Math.min(msgPage * msgPageSize, msgTotal)} of {msgTotal}
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <button
+                                            disabled={msgPage === 1}
+                                            onClick={() => setMsgPage(p => p - 1)}
+                                            className="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold disabled:opacity-50 hover:bg-slate-50 transition-colors"
+                                        >
+                                            Previous
+                                        </button>
+                                        <button
+                                            disabled={msgPage * msgPageSize >= msgTotal}
+                                            onClick={() => setMsgPage(p => p + 1)}
+                                            className="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold disabled:opacity-50 hover:bg-slate-50 transition-colors"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

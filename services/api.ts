@@ -314,6 +314,15 @@ export const api = {
             method: 'PATCH',
             body: JSON.stringify({ newPassword: newPass })
         });
+    },
+
+    async getAdminMessages(page: number, pageSize: number, search?: string): Promise<{ messages: any[], total: number }> {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            pageSize: pageSize.toString(),
+        });
+        if (search) params.append('search', search);
+        return request<{ messages: any[], total: number }>(`/admin/messages?${params.toString()}`);
     }
 
 };

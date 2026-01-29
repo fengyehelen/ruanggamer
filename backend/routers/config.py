@@ -22,6 +22,7 @@ def convert_db_activity(a: dict) -> dict:
         "content": a["content"],
         "link": a["link"],
         "active": a.get("active", True),
+        "isPinned": a.get("is_pinned", False),
         "showPopup": a.get("show_popup", False),
         "targetCountries": a.get("target_countries") or ["id"]
     }
@@ -94,7 +95,7 @@ async def get_initial_data(db: Client = Depends(get_db)):
     from .tasks import convert_db_platform
     
     # 获取平台
-    platforms_result = db.table("platforms").select("*").eq("status", "online").execute()
+    platforms_result = db.table("platforms").select("*").eq("status", "online").order("is_pinned", desc=True).order("created_at", desc=True).execute()
     platforms = [convert_db_platform(p) for p in (platforms_result.data or [])]
     
     # 获取活动

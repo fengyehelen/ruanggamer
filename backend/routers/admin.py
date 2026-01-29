@@ -296,6 +296,58 @@ class AuditWithdrawalRequest(BaseModel):
     transactionId: str
     status: str # success, failed (rejected)
 
+from schemas import UserResponse, PaginatedMessagesResponse
+
+
+@router.get("/messages", response_model=PaginatedMessagesResponse)
+async def get_paginated_messages(
+    page: int = 1, 
+    pageSize: int = 20, 
+    search: Optional[str] = None, 
+    db: Client = Depends(get_db)
+):
+    """分页获取所有用户的系统消息动态"""
+    # 1. 计算范围
+    start = (page - 1) * pageSize
+    end = start + pageSize - 1
+
+    # 2. 构建查询
+    query = db.table("messages").select("*, users!inner(phone)", count="exact").order("date", desc=True)
+
+    # 3. 搜索逻辑 (如果存在 search 参数)
+    if search:
+        # 搜索标题、内容、或者关联用户的手机号、ID
+        # 注意：Supabase 的 or 语法较为特殊，特别是跨表查询
+        # 这里先实现基础的标题和内容搜索，以及用户 ID 搜索
+        search_filter = f"title.ilike.%{search}%,content.ilike.%{search}%,user_id.eq.{search}"
+        
+        # 如果搜索内容看起来像手机号，也尝试搜索手机号
+        # 由于 messages 表和 users 表有外键关联，我们可以使用 users!inner(phone) 后的过滤
+        query = query.or_(search_filter)
+
+    # 4. 执行分页查询
+    result = query.range(start, end).execute()
+    
+    # 5. 格式化数据
+    messages = []
+    for m in (result.data or []):
+        messages.append({
+            "id": m["id"],
+            "title": m["title"],
+            "content": m["content"],
+            "rewardAmount": m.get("reward_amount"),
+            "date": m["date"],
+            "read": m.get("read", False),
+            "userId": m["user_id"],
+            "userPhone": m.get("users", {}).get("phone") # 从 inner join 中提取 phone
+        })
+
+    return {
+        "messages": messages,
+        "total": result.count or 0
+    }
+
+
 @router.post("/audit-withdrawal")
 async def audit_withdrawal(req: AuditWithdrawalRequest, db: Client = Depends(get_db)):
     """审核提现 (批准/拒绝)"""

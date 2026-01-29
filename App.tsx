@@ -75,7 +75,8 @@ const App: React.FC = () => {
         }
 
         api.getInitialData().then(data => {
-            setPlatforms(data.platforms || []);
+            const sortedPlatforms = (data.platforms || []).sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+            setPlatforms(sortedPlatforms);
             setActivities(data.activities || []);
         }).catch(err => console.error("Failed to load data", err));
 
@@ -488,7 +489,8 @@ const App: React.FC = () => {
                             try {
                                 await api.addTask(task);
                                 const data = await api.getInitialData();
-                                setPlatforms(data.platforms);
+                                const sortedPlatforms = (data.platforms || []).sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+                                setPlatforms(sortedPlatforms);
                             } catch (e: any) { alert("Add Task Failed: " + e.message); }
                         }}
 
@@ -496,7 +498,8 @@ const App: React.FC = () => {
                             try {
                                 await api.updateTask(id, updates);
                                 const data = await api.getInitialData();
-                                setPlatforms(data.platforms);
+                                const sortedPlatforms = (data.platforms || []).sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+                                setPlatforms(sortedPlatforms);
                             } catch (e: any) { alert("Update Task Failed: " + e.message); }
                         }}
 
@@ -505,7 +508,8 @@ const App: React.FC = () => {
                             try {
                                 await api.addActivity(act);
                                 const data = await api.getInitialData();
-                                setActivities(data.activities);
+                                const sortedActivities = (data.activities || []).sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+                                setActivities(sortedActivities);
                             } catch (e: any) { alert("Add Activity Failed"); }
                         }}
 
@@ -525,7 +529,8 @@ const App: React.FC = () => {
                                         if (t) await api.updateTask(id, { isPinned: !t.isPinned });
                                     }
                                     const data = await api.getInitialData();
-                                    setPlatforms(data.platforms);
+                                    const sortedPlatforms = (data.platforms || []).sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+                                    setPlatforms(sortedPlatforms);
                                 }
                                 else if (type === 'activity') {
                                     if (action === 'delete') {
@@ -541,7 +546,8 @@ const App: React.FC = () => {
                                         if (a) await api.updateActivity(id, { showPopup: !a.showPopup });
                                     }
                                     const data = await api.getInitialData();
-                                    setActivities(data.activities);
+                                    const sortedActivities = (data.activities || []).sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+                                    setActivities(sortedActivities);
                                 }
                             } catch (e: any) { alert("Action Failed: " + e.message); }
                         }}
@@ -601,8 +607,8 @@ const App: React.FC = () => {
                             onBindPhone={handleBindPhone}
                         />
                     } />
-                    <Route path="/help" element={<StaticPageView title="Bantuan" content="Hubungi Admin via Telegram jika ada kendala." />} />
-                    <Route path="/about" element={<StaticPageView title="Tentang Kami" content="RuangGamer adalah platform gaming reward nomor 1 di Indonesia." />} />
+                    <Route path="/help" element={<StaticPageView title="Bantuan" content={config.helpContent || "Hubungi Admin via Telegram jika ada kendala."} />} />
+                    <Route path="/about" element={<StaticPageView title="Tentang Kami" content={config.aboutContent || "RuangGamer adalah platform gaming reward nomor 1 di Indonesia."} />} />
 
                     {/* Protected Routes (Redirect to Login if null) */}
                     <Route path="/my-tasks" element={user ? <MyTasksView user={user} t={TRANSLATIONS[lang]} onSubmitProof={handleSubmitProof} lang={lang} clearUnreadMisi={handleClearUnreadMisi} config={config} /> : <Navigate to="/login" />} />

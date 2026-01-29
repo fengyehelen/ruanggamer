@@ -9,7 +9,7 @@ import {
     ArrowLeft, ChevronRight, Copy, Upload, Clock, XCircle, User as UserIcon, Users,
     List, CheckCircle, Smartphone, Lock, MessageSquare, LogOut, QrCode,
     CreditCard, Eye, EyeOff, ArrowDown, Sparkles, Plus, ShieldCheck, Wallet, History,
-    Share2, Facebook, Twitter, Link as LinkIcon, Send, MessageCircle, Dices, Palette, Mail, Volume2, Heart, HelpCircle, Info, Filter, X, Crown,
+    Share2, Facebook, Twitter, Link as LinkIcon, Send, MessageCircle, Dices, Palette, Mail, Volume2, Heart, HelpCircle, Info, Filter, X, Crown, Pin,
     Image as ImageIcon, ChevronLeft, LogIn, AlertTriangle, Headset, Star, ArrowRight, BarChart2, TrendingUp, PlayCircle, Settings, Download
 } from 'lucide-react';
 import Layout from './Layout';
@@ -380,6 +380,11 @@ export const HomeView: React.FC<any> = ({ platforms, t, setSort, sort, lang, act
 
     // Sort logic handled in render
     const sortedPlatforms = [...platforms].sort((a, b) => {
+        // Priority 1: isPinned
+        if (b.isPinned && !a.isPinned) return 1;
+        if (a.isPinned && !b.isPinned) return -1;
+
+        // Priority 2: User selected sort
         if (sort === SortOption.NEWEST) {
             // Newest first based on launchDate
             return new Date(b.launchDate).getTime() - new Date(a.launchDate).getTime();
@@ -391,7 +396,7 @@ export const HomeView: React.FC<any> = ({ platforms, t, setSort, sort, lang, act
             const completedB = b.totalQty - b.remainingQty;
             return completedB - completedA;
         }
-        return 0; // Default or no change
+        return 0;
     });
 
     return (
@@ -435,7 +440,13 @@ export const HomeView: React.FC<any> = ({ platforms, t, setSort, sort, lang, act
                             <div className="absolute inset-0 p-4 flex flex-col justify-between">
                                 {/* Top Badges */}
                                 <div className="flex justify-between items-start">
-                                    {p.isHot ? <div className="bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg shadow-red-600/40 uppercase">TOP</div> : <div></div>}
+                                    {p.isPinned ? (
+                                        <div className="bg-yellow-500 text-slate-900 text-[10px] font-black px-3 py-1 rounded-full shadow-lg shadow-yellow-500/40 uppercase flex items-center gap-1">
+                                            <Pin size={10} fill="currentColor" /> TOP
+                                        </div>
+                                    ) : p.isHot ? (
+                                        <div className="bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg shadow-red-600/40 uppercase">HOT</div>
+                                    ) : <div></div>}
                                 </div>
 
                                 {/* Bottom Info */}
