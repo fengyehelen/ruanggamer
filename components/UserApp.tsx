@@ -605,7 +605,15 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
     const navigate = useNavigate();
     const tasks = user.myTasks || [];
     const [filter, setFilter] = useState<'all' | 'ongoing' | 'completed'>('all');
-    const [showExample, setShowExample] = useState(false); // 示例图片展开状态
+    // 示例图片展开状态 - Persist in localStorage
+    const [showExample, setShowExample] = useState(() => {
+        try {
+            const saved = localStorage.getItem('example_image_expanded');
+            return saved !== 'false'; // Default to true if null or anything else
+        } catch (e) {
+            return true;
+        }
+    });
 
     useEffect(() => {
         if (clearUnreadMisi) clearUnreadMisi();
@@ -703,11 +711,15 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
             {exampleImage && (
                 <div className="px-4 pt-4">
                     <button
-                        onClick={() => setShowExample(!showExample)}
+                        onClick={() => {
+                            const newState = !showExample;
+                            setShowExample(newState);
+                            localStorage.setItem('example_image_expanded', String(newState));
+                        }}
                         className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg hover:from-blue-500 hover:to-blue-400 transition-all mb-3"
                     >
                         <ImageIcon size={16} />
-                        {showExample ? 'Sembunyikan contoh gambar' : 'Lihat contoh gambar'}
+                        {showExample ? 'Sembunyikan contoh gambar' : '👇 Wajib Lihat Contoh Sebelum Upload'}
                     </button>
 
                     {showExample && (

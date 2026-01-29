@@ -682,35 +682,6 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                         </div>
                                     )}
                                 </div>
-
-                                <div className="space-y-6">
-                                    <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                                        <div className="flex items-center gap-2 mb-4 text-slate-800">
-                                            <Info size={18} className="text-indigo-600" />
-                                            <h4 className="font-bold">Content Management</h4>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">Help Center Content (Bantuan)</label>
-                                                <textarea
-                                                    value={props.config.helpContent}
-                                                    onChange={e => props.updateConfig({ ...props.config, helpContent: e.target.value })}
-                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                    placeholder="Enter help page content..."
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">About Us Content (Tentang Kami)</label>
-                                                <textarea
-                                                    value={props.config.aboutContent}
-                                                    onChange={e => props.updateConfig({ ...props.config, aboutContent: e.target.value })}
-                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                    placeholder="Enter about us content..."
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -1017,38 +988,11 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                         </div>
                                     </div>
 
-                                </div>
 
-                                <div className="space-y-6">
-                                    <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                                        <div className="flex items-center gap-2 mb-4 text-slate-800">
-                                            <Info size={18} className="text-indigo-600" />
-                                            <h4 className="font-bold">Content Management</h4>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">Help Center Content (Bantuan)</label>
-                                                <textarea
-                                                    value={props.config.helpContent}
-                                                    onChange={e => props.updateConfig({ ...props.config, helpContent: e.target.value })}
-                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                    placeholder="Enter help page content..."
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">About Us Content (Tentang Kami)</label>
-                                                <textarea
-                                                    value={props.config.aboutContent}
-                                                    onChange={e => props.updateConfig({ ...props.config, aboutContent: e.target.value })}
-                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                    placeholder="Enter about us content..."
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
-                            <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end"><button onClick={publishTask} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 flex items-center gap-2 transition-transform hover:-translate-y-1 active:scale-95"><Save size={18} /> {editingTaskId ? 'Update Task' : 'Publish Task'}</button></div>
+                            <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
+                                <button onClick={publishTask} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 flex items-center gap-2 transition-transform hover:-translate-y-1 active:scale-95"><Save size={18} /> {editingTaskId ? 'Update Task' : 'Publish Task'}</button></div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-3">
@@ -1093,35 +1037,6 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                 </div>
                                 <div className="space-y-4">
                                     <div><label className="text-xs font-bold uppercase text-slate-500">Content</label><textarea value={actContent} onChange={e => setActContent(e.target.value)} className="w-full border p-2 rounded-lg mt-1 h-32" /></div>
-                                </div>
-
-                                <div className="space-y-6">
-                                    <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                                        <div className="flex items-center gap-2 mb-4 text-slate-800">
-                                            <Info size={18} className="text-indigo-600" />
-                                            <h4 className="font-bold">Content Management</h4>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">Help Center Content (Bantuan)</label>
-                                                <textarea
-                                                    value={props.config.helpContent}
-                                                    onChange={e => props.updateConfig({ ...props.config, helpContent: e.target.value })}
-                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                    placeholder="Enter help page content..."
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs font-bold uppercase text-slate-500 block mb-1">About Us Content (Tentang Kami)</label>
-                                                <textarea
-                                                    value={props.config.aboutContent}
-                                                    onChange={e => props.updateConfig({ ...props.config, aboutContent: e.target.value })}
-                                                    className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                    placeholder="Enter about us content..."
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                             <div className="mt-6 flex justify-end"><button onClick={publishActivity} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2"><Save size={18} /> Publish Activity</button></div>
