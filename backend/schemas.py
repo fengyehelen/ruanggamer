@@ -293,6 +293,7 @@ class SystemConfig(BaseModel):
     about_content: str = Field("", alias="aboutContent")
     vip_config: Any = Field(default_factory=dict, alias="vipConfig")
     misi_example_image: Any = Field(default_factory=dict, alias="misiExampleImage")
+    welcome_message: str = Field("", alias="welcomeMessage")
 
 
     model_config = ConfigDict(

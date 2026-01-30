@@ -44,7 +44,8 @@ async def get_config(db: Client = Depends(get_db)):
         "helpContent": "",
         "aboutContent": "",
         "vipConfig": {},
-        "misiExampleImage": {}
+        "misiExampleImage": {},
+        "welcomeMessage": ""
     }
     
     for item in (result.data or []):
@@ -71,6 +72,8 @@ async def get_config(db: Client = Depends(get_db)):
             config["vipConfig"] = value
         elif key == "misi_example_image":
             config["misiExampleImage"] = value
+        elif key == "welcome_message":
+            config["welcomeMessage"] = value if isinstance(value, str) else str(value).strip('"')
     
     return config
 
@@ -128,7 +131,8 @@ async def update_config(config: SystemConfig, db: Client = Depends(get_db)):
         {"key": "help_content", "value": config_dict.get("helpContent") or ""},
         {"key": "about_content", "value": config_dict.get("aboutContent") or ""},
         {"key": "vip_config", "value": config_dict.get("vipConfig") or {}},
-        {"key": "misi_example_image", "value": config_dict.get("misiExampleImage") or {}}
+        {"key": "misi_example_image", "value": config_dict.get("misiExampleImage") or {}},
+        {"key": "welcome_message", "value": config_dict.get("welcomeMessage") or ""}
     ]
 
     for item in updates:

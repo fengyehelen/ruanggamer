@@ -205,11 +205,17 @@ async def register(user_data: UserCreate, db: Client = Depends(get_db)):
     new_user = result.data[0]
     user_id = new_user["id"]
     
+    # 获取欢迎消息配置
+    welcome_msg = "Welcome to RuangGamer. Bind your phone number in profile to secure your account."
+    welcome_config = db.table("system_config").select("value").eq("key", "welcome_message").execute()
+    if welcome_config.data and welcome_config.data[0]["value"]:
+        welcome_msg = welcome_config.data[0]["value"]
+
     # 创建欢迎消息
     db.table("messages").insert({
         "user_id": user_id,
         "title": "Welcome!",
-        "content": "Welcome to RuangGamer. Bind your phone number in profile to secure your account.",
+        "content": welcome_msg,
         "read": False,
         "date": datetime.now().isoformat()
     }).execute()

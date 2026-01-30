@@ -153,9 +153,9 @@ class AuditTaskRequest(BaseModel):
 async def audit_task(req: AuditTaskRequest, db: Client = Depends(get_db)):
     """审核任务 (批准/拒绝)"""
     # 更新 user_tasks 表
+    # 注意：我们保留现有的 submission_time，它是用户提交凭证的时间
     result = db.table("user_tasks").update({
         "status": req.status,
-        "submission_time": datetime.now().isoformat() if req.status == 'completed' else None
     }).eq("id", req.taskId).eq("user_id", req.userId).execute()
     
     if req.status == 'completed':

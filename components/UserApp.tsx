@@ -625,10 +625,19 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
 
     const handleUploadClick = (e: React.MouseEvent, taskId: string) => {
         e.stopPropagation();
-        setActiveTaskId(taskId);
-        if (fileInputRef.current) {
-            fileInputRef.current.click();
+
+        // Confirmation dialog: Ask if user has topped up
+        const confirmTopUp = window.confirm(
+            "Apakah Anda sudah melakukan top up di dalam game?\n\nKlik 'OK' jika sudah top-up, atau 'Cancel' jika belum."
+        );
+
+        if (confirmTopUp) {
+            setActiveTaskId(taskId);
+            if (fileInputRef.current) {
+                fileInputRef.current.click();
+            }
         }
+        // If user clicks Cancel (Belum top-up), do nothing
     };
 
     const [isUploading, setIsUploading] = useState(false);
@@ -769,11 +778,19 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
                                 <Upload size={16} /> Unggah Gambar (lihat contoh)
                             </button>
                         )}
-                        {task.status === 'rejected' && task.rejectReason && (
-                            <div className="bg-red-500/10 p-3 rounded-lg text-xs text-red-400 mt-2 border border-red-500/20">
-                                <strong>Reason:</strong> {task.rejectReason}
-                            </div>
+                        {task.status === 'rejected' && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const csLink = config.customerServiceLinks?.['id'] || 'https://t.me/RuangGamer_id';
+                                    window.open(csLink, '_blank');
+                                }}
+                                className="w-full mt-3 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-900/20"
+                            >
+                                <Headset size={16} /> Hubungi Customer Service untuk bantuan
+                            </button>
                         )}
+                        {/* Rejected reason block removed per user request */}
                     </div>
                 ))}
             </div>

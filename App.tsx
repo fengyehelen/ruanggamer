@@ -409,7 +409,15 @@ const App: React.FC = () => {
                     }
                 );
             } else if (oldTask?.status !== 'rejected' && payload.new.status === 'rejected') {
-                alert(`Tugas "${payload.new.platform_name}" ditolak. Alasan: ${payload.new.reject_reason || 'Tidak ada alasan'}`);
+                console.log('Task rejected:', payload.new);
+                const reason = payload.new.rejection_reason || payload.new.reject_reason || 'Tidak diketahui';
+                alert(`Tugas "${payload.new.platform_name}" ditolak. Alasan: ${reason}. Silakan hubungi Customer Service untuk bantuan.`);
+
+                // 点击OK后自动打开客服链接
+                const csLink = config.customerServiceLinks['id'];
+                if (csLink) {
+                    window.open(csLink, '_blank');
+                }
             }
         }
 

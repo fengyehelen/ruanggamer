@@ -464,7 +464,8 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
 
     const users = localUsers;
 
-    const auditTasks = users.flatMap(u => (u.myTasks || []).filter(t => t.status === 'reviewing'));
+    const auditTasks = users.flatMap(u => (u.myTasks || []).filter(t => t.status === 'reviewing'))
+        .sort((a, b) => new Date(b.submissionTime || b.startTime).getTime() - new Date(a.submissionTime || a.startTime).getTime());
     const auditHistory = users.flatMap(u => (u.myTasks || []).filter(t => t.status === 'completed' || t.status === 'rejected'))
         .sort((a, b) => new Date(b.submissionTime || b.startTime).getTime() - new Date(a.submissionTime || a.startTime).getTime());
 
@@ -652,6 +653,21 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                             </div>
                                         </div>
                                     </div>
+
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mt-6">
+                                        <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                            <Mail size={18} className="text-indigo-500" /> New User Welcome Message
+                                        </h3>
+                                        <div className="space-y-4">
+                                            <p className="text-xs text-slate-500 italic pb-2">This message will be sent to new users' mailbox upon registration.</p>
+                                            <textarea
+                                                value={props.config.welcomeMessage || ''}
+                                                onChange={e => props.updateConfig({ ...props.config, welcomeMessage: e.target.value })}
+                                                className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                placeholder="Welcome to RuangGamer! Bind your phone number in profile to secure your account."
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -736,7 +752,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                             <table className="w-full text-left">
                                 <thead className="bg-slate-50 border-b border-slate-200">
-                                    <tr><th className="p-4">User</th><th className="p-4">Task</th><th className="p-4">Proof</th><th className="p-4">Status / Action</th></tr>
+                                    <tr><th className="p-4">User</th><th className="p-4">Task</th><th className="p-4">Submitted</th><th className="p-4">Proof</th><th className="p-4">Status / Action</th></tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {auditTab === 'queue' ? (
@@ -748,6 +764,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                                     <tr key={task.id}>
                                                         <td className="p-4"><div className="font-bold">{user?.phone}</div><div className="text-xs text-slate-400">ID: {user?.id}</div></td>
                                                         <td className="p-4"><div className="font-bold text-indigo-600">{task.platformName}</div><div className="text-xs">Reward: {task.rewardAmount}</div></td>
+                                                        <td className="p-4"><div className="text-xs text-slate-500">{task.submissionTime ? new Date(task.submissionTime).toLocaleString() : '-'}</div></td>
                                                         <td className="p-4">
                                                             {task.proofImageUrl ? (
                                                                 <button onClick={() => setImageModalUrl(task.proofImageUrl!)} className="flex items-center gap-1 text-indigo-600 text-sm font-bold bg-indigo-50 px-3 py-1 rounded hover:bg-indigo-100">
@@ -781,21 +798,31 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                             {auditHistory.map(task => {
                                                 const user = users.find(u => (u.myTasks || []).some(t => t.id === task.id));
                                                 return (
-                                                    <tr key={task.id} className="opacity-75 grayscale hover:grayscale-0 hover:opacity-100">
-                                                        <td className="p-4"><div className="font-bold">{user?.phone}</div><div className="text-xs text-slate-400">ID: {user?.id}</div></td>
-                                                        <td className="p-4"><div className="font-bold">{task.platformName}</div><div className="text-xs">Reward: {task.rewardAmount}</div></td>
+                                                    <tr key={task.id} className="opacity-75 grayscale hover:grayscale-0 hover:opacity-100 transition-all">
                                                         <td className="p-4">
-                                                            {task.proofImageUrl ? (
-                                                                <button onClick={() => setImageModalUrl(task.proofImageUrl!)} className="flex items-center gap-1 text-indigo-600 text-xs bg-indigo-50 px-2 py-1 rounded">
-                                                                    <Eye size={12} /> View
-                                                                </button>
-                                                            ) : '-'}
+                                                            <div className="font-bold text-slate-700">{user?.phone || 'Unknown User'}</div>
+                                                            <div className="text-[10px] text-slate-400">ID: {user?.id}</div>
                                                         </td>
                                                         <td className="p-4">
-                                                            <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${task.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                            <div className="font-bold text-slate-700">{task.platformName}</div>
+                                                            <div className="text-[10px] text-slate-400">Reward: {task.rewardAmount}</div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded inline-block">
+                                                                {task.submissionTime ? new Date(task.submissionTime).toLocaleString() : '-'}
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            {task.proofImageUrl ? (
+                                                                <button onClick={() => setImageModalUrl(task.proofImageUrl!)} className="flex items-center gap-1 text-indigo-600 text-xs font-bold bg-indigo-50 px-3 py-1 rounded hover:bg-indigo-100 transition-colors">
+                                                                    <Eye size={12} /> View Proof
+                                                                </button>
+                                                            ) : <span className="text-xs text-slate-300">No Image</span>}
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${task.status === 'completed' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
                                                                 {task.status}
                                                             </span>
-                                                            <div className="text-[10px] text-slate-400 mt-1">{task.submissionTime ? new Date(task.submissionTime).toLocaleString() : ''}</div>
                                                         </td>
                                                     </tr>
                                                 );
