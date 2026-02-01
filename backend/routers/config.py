@@ -43,13 +43,14 @@ async def get_config(db: Client = Depends(get_db)):
         "initialBalance": {},
         "minWithdrawAmount": {},
         "telegramLinks": {},
-        "customer_service_links": {},
+        "customerServiceLinks": {},
         "hypeLevel": 5,
-        "helpContent": "[SLIM] Fetch via /config/help",
-        "aboutContent": "[SLIM] Fetch via /config/about",
+        "helpContent": "",
+        "aboutContent": "",
         "vipConfig": {},
         "misiExampleImage": {},
-        "welcomeMessage": ""
+        "welcomeMessage": "",
+        "promoVideoUrl": ""
     }
     
     for item in (result.data or []):
@@ -70,12 +71,17 @@ async def get_config(db: Client = Depends(get_db)):
         elif key == "vip_config":
             config["vipConfig"] = value
         elif key == "misi_example_image":
-            # misiExampleImage 可能也大，但后端返回 URL 的话就没问题。
-            # 这里先原样返回，如果包含 Base64，管理员应替换为 URL。
             config["misiExampleImage"] = value
         elif key == "welcome_message":
             config["welcomeMessage"] = value if isinstance(value, str) else str(value).strip('"')
-        # Skip help_content and about_content in list mode
+        elif key in ["promo_video_url", "promoVideoUrl"]:
+            # Robust extraction: ensure it's a string and not JSON-encoded string
+            raw_val = value if isinstance(value, str) else str(value)
+            config["promoVideoUrl"] = raw_val.strip('"').strip()
+        elif key == "help_content":
+            config["helpContent"] = value
+        elif key == "about_content":
+            config["aboutContent"] = value
     
     return config
 
@@ -175,7 +181,8 @@ async def update_config(config: SystemConfig, db: Client = Depends(get_db)):
         {"key": "about_content", "value": config_dict.get("aboutContent") or ""},
         {"key": "vip_config", "value": config_dict.get("vipConfig") or {}},
         {"key": "misi_example_image", "value": config_dict.get("misiExampleImage") or {}},
-        {"key": "welcome_message", "value": config_dict.get("welcomeMessage") or ""}
+        {"key": "welcome_message", "value": config_dict.get("welcomeMessage") or ""},
+        {"key": "promo_video_url", "value": config_dict.get("promoVideoUrl") or ""}
     ]
 
     for item in updates:

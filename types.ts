@@ -128,6 +128,7 @@ export interface SystemConfig {
   aboutContent: string;
   vipConfig: Record<string, VipTier[]>;
   welcomeMessage?: string;
+  promoVideoUrl?: string;
 }
 
 

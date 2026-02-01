@@ -8,7 +8,7 @@ import Layout from './components/Layout';
 import AdminApp from './components/AdminApp';
 import {
     HomeView, TaskDetailView, MyTasksView, ProfileView, ReferralView,
-    ActivityDetailView, UserLogin, MailboxView, StaticPageView, TransactionHistoryView, TasksView, RewardPopup
+    ActivityDetailView, UserLogin, MailboxView, StaticPageView, TransactionHistoryView, TasksView, RewardPopup, PromoView
 } from './components/UserApp';
 import { useSupabaseRealtime } from './hooks/useSupabaseRealtime';
 import InstallAppButton from './components/InstallAppButton';
@@ -39,7 +39,17 @@ const App: React.FC = () => {
 
     // System Config State
     const [config, setConfig] = useState<SystemConfig>({
-        initialBalance: {}, minWithdrawAmount: {}, telegramLinks: {}, customerServiceLinks: {}, hypeLevel: 5, helpContent: '', aboutContent: '', vipConfig: {}
+        initialBalance: {},
+        minWithdrawAmount: {},
+        telegramLinks: {},
+        customerServiceLinks: {},
+        hypeLevel: 5,
+        helpContent: '',
+        aboutContent: '',
+        vipConfig: {},
+        welcomeMessage: '',
+        promoVideoUrl: '',
+        misiExampleImage: {}
     });
 
 
@@ -581,6 +591,9 @@ const App: React.FC = () => {
                             onLikeTask={handleLikeTask}
                             onQuickJoin={handleStartTask}
                         />
+                    } />
+                    <Route path="/promo" element={
+                        <PromoView activities={activities} config={config} t={TRANSLATIONS[lang]} />
                     } />
                     <Route path="/tasks" element={
                         <TasksView

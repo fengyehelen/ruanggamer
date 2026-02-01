@@ -308,18 +308,29 @@ async def get_audit_history(
             "userReferralCode": user.get("referral_code")
         })
     
-    return {"tasks": tasks, "total": len(tasks)}
+    return {"tasks": tasks, "total": total}
 
 @router.get("/pending-withdrawals")
-async def get_pending_withdrawals(db: Client = Depends(get_db)):
+async def get_pending_withdrawals(
+    page: int = 1,
+    per_page: int = 20,
+    db: Client = Depends(get_db)
+):
     """
     获取所有提现记录 (按时间倒序)
-    返回包含用户信息和银行账户的交易列表
+    支持分页
     """
-    # Get all withdrawal transactions with user and bank info
+    start = (page - 1) * per_page
+    end = start + per_page - 1
+
+    # Get total count
+    count_res = db.table("transactions").select("id", count="exact").eq("type", "withdraw").execute()
+    total = count_res.count or 0
+
+    # Get withdrawal transactions with user and bank info
     tx_res = db.table("transactions").select(
         "*, users(id, email, phone, referral_code, bank_accounts(*))"
-    ).eq("type", "withdraw").order("created_at", desc=True).limit(200).execute()
+    ).eq("type", "withdraw").order("created_at", desc=True).range(start, end).execute()
     
     # Transform to include user info directly
     withdrawals = []

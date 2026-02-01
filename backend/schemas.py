@@ -335,7 +335,7 @@ class SystemConfig(BaseModel):
     vip_config: Any = Field(default_factory=dict, alias="vipConfig")
     misi_example_image: Any = Field(default_factory=dict, alias="misiExampleImage")
     welcome_message: str = Field("", alias="welcomeMessage")
-
+    promo_video_url: str = Field("", alias="promoVideoUrl")
 
     model_config = ConfigDict(
         populate_by_name=True

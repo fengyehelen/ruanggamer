@@ -1,7 +1,7 @@
 
 import React, { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Users, User as UserIcon, Headset, Gamepad2, ClipboardList, Bell, Mail, Send, Dices } from 'lucide-react';
+import { TicketPercent, Home, Users, User as UserIcon, Headset, Gamepad2, ClipboardList, Bell, Mail, Send, Dices } from 'lucide-react';
 import { Language } from '../types';
 import { TRANSLATIONS } from '../constants';
 
@@ -98,9 +98,9 @@ const Layout: React.FC<Props> = ({ children, lang, telegramLink, customerService
 
       <nav className={`fixed bottom-0 z-40 w-full max-w-md pb-safe transition-colors ${navClass}`}>
         <div className="flex justify-between items-center px-6 py-3">
-          <Link to="/" className={`flex flex-col items-center space-y-1 w-14 ${isActive('/') ? iconActive : iconInactive}`}>
-            <Home size={22} strokeWidth={isActive('/') ? 2.5 : 2} />
-            <span className="text-[10px] font-medium">{t.home}</span>
+          <Link to="/promo" className={`flex flex-col items-center space-y-1 w-14 ${isActive('/promo') ? iconActive : iconInactive}`}>
+            <TicketPercent size={22} strokeWidth={isActive('/promo') ? 2.5 : 2} />
+            <span className="text-[10px] font-medium">{t.promo}</span>
           </Link>
 
           <Link to="/referral" className={`flex flex-col items-center space-y-1 w-14 ${isActive('/referral') ? iconActive : iconInactive}`}>

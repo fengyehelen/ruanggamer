@@ -23,7 +23,7 @@ export const BANK_OPTIONS: Record<string, { name: string; type: 'bank' | 'ewalle
 
 export const TRANSLATIONS = {
   id: {
-    home: 'Beranda', earn: 'Cuan', tasks: 'Misi', profile: 'Profil', referral: 'Undang', login: 'Masuk', register: 'Daftar', merchantLogin: 'Login Mitra',
+    home: 'Beranda', promo: 'Promo', earn: 'Cuan', tasks: 'Misi', profile: 'Profil', referral: 'Undang', login: 'Masuk', register: 'Daftar', merchantLogin: 'Login Mitra',
     phone: 'Nomor WhatsApp', email: 'Alamat Email', bindPhone: 'Ikat No. HP', enterPhone: 'Masukkan No HP', enterEmail: 'Masukkan Email',
     password: 'Kata Sandi', username: 'Username', verifyCode: 'Kode OTP', getCode: 'Minta Kode', appName: 'RuangGamer',
     balance: 'Saldo', withdraw: 'Tarik Dana', bindCard: 'Akun Bank', totalEarnings: 'Total Cuan', submitProof: 'Kirim Bukti',

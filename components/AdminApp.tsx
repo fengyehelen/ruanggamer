@@ -177,7 +177,18 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     const historyPageSize = 20;
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
+    // Local state for configuration form to prevent race conditions during editing
+    const [draftConfig, setDraftConfig] = useState<SystemConfig>(props.config);
+    const [isSavingConfig, setIsSavingConfig] = useState(false);
+
     useEffect(() => { checkApiKey(); }, []);
+
+    // Sync draftConfig with props when view changes to config
+    useEffect(() => {
+        if (view === 'config') {
+            setDraftConfig(props.config);
+        }
+    }, [view, props.config]);
 
     // Fetch dashboard stats
     const refreshDashboardStats = async () => {
@@ -417,44 +428,53 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     };
 
 
-    const handleConfigChange = (type: 'init' | 'min', country: string, value: string) => {
-        const val = parseInt(value) || 0;
-        const newConfig = { ...props.config };
-        if (type === 'init') {
-            newConfig.initialBalance = { ...newConfig.initialBalance, [country]: val };
-        } else {
-            newConfig.minWithdrawAmount = { ...newConfig.minWithdrawAmount, [country]: val };
-        }
-        props.updateConfig(newConfig);
+    const handleConfigChange = (type: 'init' | 'min' | 'direct', field: keyof SystemConfig | string, value: any, country?: string) => {
+        setDraftConfig(prev => {
+            const next = { ...prev };
+            if (type === 'init' && country) {
+                next.initialBalance = { ...next.initialBalance, [country]: parseInt(value) || 0 };
+            } else if (type === 'min' && country) {
+                next.minWithdrawAmount = { ...next.minWithdrawAmount, [country]: parseInt(value) || 0 };
+            } else if (type === 'direct') {
+                // @ts-ignore
+                next[field] = value;
+            }
+            return next;
+        });
     };
 
     const handleVipConfigChange = (index: number, field: 'threshold' | 'reward', value: string) => {
-        const newConfig = { ...props.config };
-        const currentVipConfig = newConfig.vipConfig || {};
-        let countryTiers = [...(currentVipConfig[vipCountry] || [])];
+        setDraftConfig(prev => {
+            const next = { ...prev };
+            const currentVipConfig = next.vipConfig || {};
+            let countryTiers = [...(currentVipConfig[vipCountry] || [])];
 
-        // Ensure we have 20 tiers
-        while (countryTiers.length < 20) {
-            const nextLevel = countryTiers.length + 1;
-            countryTiers.push({ level: nextLevel, threshold: 0, reward: 0 });
-        }
+            // Ensure we have 20 tiers
+            while (countryTiers.length < 20) {
+                const nextLevel = countryTiers.length + 1;
+                countryTiers.push({ level: nextLevel, threshold: 0, reward: 0 });
+            }
 
-        // Ensure we have a valid array to update
-        if (countryTiers[index]) {
-            countryTiers[index] = { ...countryTiers[index], [field]: parseInt(value) || 0 };
-
-            newConfig.vipConfig = {
-                ...currentVipConfig,
-                [vipCountry]: countryTiers
-            };
-
-            props.updateConfig(newConfig);
-        }
+            if (countryTiers[index]) {
+                countryTiers[index] = { ...countryTiers[index], [field]: parseInt(value) || 0 };
+                next.vipConfig = { ...currentVipConfig, [vipCountry]: countryTiers };
+            }
+            return next;
+        });
     };
 
-    const saveConfigManually = () => {
-        props.updateConfig(props.config);
-        alert("Configuration Saved Successfully!");
+    const saveConfigManually = async () => {
+        setIsSavingConfig(true);
+        try {
+            await api.updateConfig(draftConfig);
+            alert("Configuration Saved Successfully!");
+            // Update parent state as well
+            props.updateConfig(draftConfig);
+        } catch (e: any) {
+            alert("Failed to save config: " + e.message);
+        } finally {
+            setIsSavingConfig(false);
+        }
     };
 
     const handleSendMessage = async () => {
@@ -847,12 +867,18 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 max-w-2xl relative">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="font-bold text-lg">System Configuration (Indonesia)</h3>
-                            <button onClick={saveConfigManually} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-indigo-700 active:scale-95 transition-transform flex items-center gap-2"><Save size={16} /> Save Settings</button>
+                            <button
+                                onClick={saveConfigManually}
+                                disabled={isSavingConfig}
+                                className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-indigo-700 active:scale-95 transition-transform flex items-center gap-2 disabled:opacity-50"
+                            >
+                                <Save size={16} /> {isSavingConfig ? 'Saving...' : 'Save Settings'}
+                            </button>
                         </div>
                         <div className="space-y-6">
                             <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-                                <div className="flex justify-between items-center mb-2"><label className="text-sm font-bold text-indigo-800 flex items-center gap-2"><BarChart3 size={16} /> Fake Prosperity Level (Hype)</label><span className="bg-indigo-200 text-indigo-800 text-xs font-bold px-2 py-1 rounded">{props.config.hypeLevel || 1} / 10</span></div>
-                                <input type="range" min="1" max="10" value={props.config.hypeLevel || 1} onChange={e => props.updateConfig({ ...props.config, hypeLevel: parseInt(e.target.value) })} className="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer" />
+                                <div className="flex justify-between items-center mb-2"><label className="text-sm font-bold text-indigo-800 flex items-center gap-2"><BarChart3 size={16} /> Fake Prosperity Level (Hype)</label><span className="bg-indigo-200 text-indigo-800 text-xs font-bold px-2 py-1 rounded">{draftConfig.hypeLevel || 1} / 10</span></div>
+                                <input type="range" min="1" max="10" value={draftConfig.hypeLevel || 1} onChange={e => handleConfigChange('direct', 'hypeLevel', parseInt(e.target.value))} className="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer" />
                             </div>
 
                             {/* VIP Config Section */}
@@ -864,7 +890,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                 <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
                                     {(() => {
                                         // Load existing tiers and always pad to 20 for full configuration
-                                        const existingTiers = props.config.vipConfig?.['id'] || [];
+                                        const existingTiers = draftConfig.vipConfig?.['id'] || [];
                                         const vipTiers = [...existingTiers];
 
                                         while (vipTiers.length < 20) {
@@ -898,8 +924,8 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                             <div>
                                                 <label className="text-xs font-bold uppercase text-slate-500 block mb-1">Help Center Content (Bantuan)</label>
                                                 <textarea
-                                                    value={props.config.helpContent}
-                                                    onChange={e => props.updateConfig({ ...props.config, helpContent: e.target.value })}
+                                                    value={draftConfig.helpContent}
+                                                    onChange={e => handleConfigChange('direct', 'helpContent', e.target.value)}
                                                     className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                                     placeholder="Enter help page content..."
                                                 />
@@ -907,8 +933,8 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                             <div>
                                                 <label className="text-xs font-bold uppercase text-slate-500 block mb-1">About Us Content (Tentang Kami)</label>
                                                 <textarea
-                                                    value={props.config.aboutContent}
-                                                    onChange={e => props.updateConfig({ ...props.config, aboutContent: e.target.value })}
+                                                    value={draftConfig.aboutContent}
+                                                    onChange={e => handleConfigChange('direct', 'aboutContent', e.target.value)}
                                                     className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                                     placeholder="Enter about us content..."
                                                 />
@@ -923,8 +949,8 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                         <div className="space-y-4">
                                             <p className="text-xs text-slate-500 italic pb-2">This message will be sent to new users' mailbox upon registration.</p>
                                             <textarea
-                                                value={props.config.welcomeMessage || ''}
-                                                onChange={e => props.updateConfig({ ...props.config, welcomeMessage: e.target.value })}
+                                                value={draftConfig.welcomeMessage || ''}
+                                                onChange={e => handleConfigChange('direct', 'welcomeMessage', e.target.value)}
                                                 className="w-full h-32 p-3 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                                 placeholder="Welcome to RuangGamer! Bind your phone number in profile to secure your account."
                                             />
@@ -934,11 +960,22 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                             </div>
 
                             <div className="grid grid-cols-2 gap-8">
-                                <div><label className="block text-xs font-bold text-slate-500 uppercase mb-2">New User Bonus (IDR)</label><div className="flex items-center mb-1"><input type="number" value={props.config.initialBalance['id'] || 0} onChange={e => handleConfigChange('init', 'id', e.target.value)} className="flex-1 border p-1 rounded text-sm" /></div></div>
-                                <div><label className="block text-xs font-bold text-slate-500 uppercase mb-2">Min Withdrawal (IDR)</label><div className="flex items-center mb-1"><input type="number" value={props.config.minWithdrawAmount['id'] || 0} onChange={e => handleConfigChange('min', 'id', e.target.value)} className="flex-1 border p-1 rounded text-sm" /></div></div>
+                                <div><label className="block text-xs font-bold text-slate-500 uppercase mb-2">New User Bonus (IDR)</label><div className="flex items-center mb-1"><input type="number" value={draftConfig.initialBalance?.['id'] || 0} onChange={e => handleConfigChange('init', 'id', e.target.value, 'id')} className="flex-1 border p-1 rounded text-sm" /></div></div>
+                                <div><label className="block text-xs font-bold text-slate-500 uppercase mb-2">Min Withdrawal (IDR)</label><div className="flex items-center mb-1"><input type="number" value={draftConfig.minWithdrawAmount?.['id'] || 0} onChange={e => handleConfigChange('min', 'id', e.target.value, 'id')} className="flex-1 border p-1 rounded text-sm" /></div></div>
                             </div>
-                            <div><h4 className="text-sm font-bold mb-2">Telegram Channel</h4><input type="text" value={props.config.telegramLinks['id'] || ''} onChange={e => props.updateConfig({ ...props.config, telegramLinks: { ...props.config.telegramLinks, ['id']: e.target.value } })} className="w-full border p-2 rounded" placeholder="https://t.me/ruanggamer_id" /></div>
-                            <div><h4 className="text-sm font-bold mb-2">Customer Service Link</h4><input type="text" value={props.config.customerServiceLinks['id'] || ''} onChange={e => props.updateConfig({ ...props.config, customerServiceLinks: { ...props.config.customerServiceLinks, ['id']: e.target.value } })} className="w-full border p-2 rounded" placeholder="https://t.me/ruanggamer_cs" /></div>
+                            <div><h4 className="text-sm font-bold mb-2">Telegram Channel</h4><input type="text" value={draftConfig.telegramLinks?.['id'] || ''} onChange={e => handleConfigChange('direct', 'telegramLinks', { ...draftConfig.telegramLinks, ['id']: e.target.value })} className="w-full border p-2 rounded" placeholder="https://t.me/ruanggamer_id" /></div>
+                            <div><h4 className="text-sm font-bold mb-2">Customer Service Link</h4><input type="text" value={draftConfig.customerServiceLinks?.['id'] || ''} onChange={e => handleConfigChange('direct', 'customerServiceLinks', { ...draftConfig.customerServiceLinks, ['id']: e.target.value })} className="w-full border p-2 rounded" placeholder="https://t.me/ruanggamer_cs" /></div>
+                            <div>
+                                <h4 className="text-sm font-bold mb-2">Promo Video (YouTube URL)</h4>
+                                <input
+                                    type="text"
+                                    value={draftConfig.promoVideoUrl || ''}
+                                    onChange={e => handleConfigChange('direct', 'promoVideoUrl', e.target.value)}
+                                    className="w-full border p-2 rounded"
+                                    placeholder="https://www.youtube.com/watch?v=..."
+                                />
+                                <p className="text-[10px] text-slate-500 mt-1 uppercase font-bold tracking-widest">Akan ditampilkan di halaman Promo</p>
+                            </div>
 
                             {/* Misi Example Image */}
                             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
@@ -957,12 +994,9 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                                     const reader = new FileReader();
                                                     reader.onloadend = () => {
                                                         const base64 = reader.result as string;
-                                                        props.updateConfig({
-                                                            ...props.config,
-                                                            misiExampleImage: {
-                                                                ...props.config.misiExampleImage,
-                                                                'id': base64
-                                                            }
+                                                        handleConfigChange('direct', 'misiExampleImage', {
+                                                            ...draftConfig.misiExampleImage,
+                                                            'id': base64
                                                         });
                                                     };
                                                     reader.readAsDataURL(file);
