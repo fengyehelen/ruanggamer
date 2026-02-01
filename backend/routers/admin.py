@@ -335,7 +335,7 @@ async def get_pending_withdrawals(db: Client = Depends(get_db)):
             "bankAccounts": bank_accounts
         })
     
-    return {"withdrawals": withdrawals, "total": len(withdrawals)}
+    return {"withdrawals": withdrawals, "total": total}
 
 class AuditTaskRequest(BaseModel):
     userId: str

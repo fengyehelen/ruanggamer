@@ -127,6 +127,9 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     const [auditHistoryTotal, setAuditHistoryTotal] = useState(0);
     const auditHistoryPerPage = 20;
     const [withdrawalsList, setWithdrawalsList] = useState<any[]>([]);
+    const [withdrawalsPage, setWithdrawalsPage] = useState(1);
+    const [withdrawalsTotal, setWithdrawalsTotal] = useState(0);
+    const withdrawalsPerPage = 20;
 
     // --- FORM STATES ---
     const [actTitle, setActTitle] = useState('');
@@ -224,10 +227,12 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     };
 
     // Fetch withdrawals list
-    const fetchWithdrawals = async () => {
+    const fetchWithdrawals = async (page: number = 1) => {
         try {
-            const res = await api.getPendingWithdrawals();
+            const res = await api.getPendingWithdrawals(page, withdrawalsPerPage);
             setWithdrawalsList(res.withdrawals || []);
+            setWithdrawalsTotal(res.total || 0);
+            setWithdrawalsPage(page);
         } catch (e) {
             console.error('Failed to load withdrawals', e);
         }
@@ -306,6 +311,13 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
             fetchAuditHistory(auditHistoryPage);
         }
     }, [view, auditHistoryPage]);
+
+    // Fetch withdrawals when page changes
+    useEffect(() => {
+        if (view === 'withdrawals') {
+            fetchWithdrawals(withdrawalsPage);
+        }
+    }, [view, withdrawalsPage]);
 
     // --- REALTIME SUBSCRIPTION (Admin Global) ---
     const adminRealtimeConfig = React.useMemo(() => [
@@ -628,6 +640,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                 // Refresh current page and stats
                 await refreshDashboardStats();
                 await fetchPaginatedUsers(usersPage, userSearch);
+                await fetchWithdrawals(withdrawalsPage);
             } catch (e: any) {
                 console.error("Background withdrawal audit failed:", e);
                 alert("Withdrawal audit failed, rolling back: " + e.message);
@@ -1160,6 +1173,29 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                             </tbody>
 
                         </table>
+
+                        {/* Withdrawals Pagination Controls */}
+                        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                            <div className="text-xs text-slate-500">
+                                Page {withdrawalsPage} of {Math.ceil(withdrawalsTotal / withdrawalsPerPage) || 1} (Total: {withdrawalsTotal})
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setWithdrawalsPage(prev => Math.max(1, prev - 1))}
+                                    disabled={withdrawalsPage <= 1}
+                                    className={`px-3 py-1 rounded border text-xs font-bold transition-all ${withdrawalsPage <= 1 ? 'text-slate-300 border-slate-200' : 'text-slate-600 border-slate-300 hover:bg-white active:scale-95'}`}
+                                >
+                                    Previous
+                                </button>
+                                <button
+                                    onClick={() => setWithdrawalsPage(prev => prev + 1)}
+                                    disabled={withdrawalsPage * withdrawalsPerPage >= withdrawalsTotal}
+                                    className={`px-3 py-1 rounded border text-xs font-bold transition-all ${withdrawalsPage * withdrawalsPerPage >= withdrawalsTotal ? 'text-slate-300 border-slate-200' : 'text-slate-600 border-slate-300 hover:bg-white active:scale-95'}`}
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
 

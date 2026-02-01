@@ -409,8 +409,8 @@ export const api = {
     /**
      * 获取提现记录列表
      */
-    async getPendingWithdrawals(): Promise<{ withdrawals: any[]; total: number }> {
-        return request('/admin/pending-withdrawals');
+    async getPendingWithdrawals(page: number = 1, perPage: number = 20): Promise<{ withdrawals: any[]; total: number }> {
+        return request(`/admin/pending-withdrawals?page=${page}&per_page=${perPage}`);
     },
 
     /**
