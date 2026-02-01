@@ -99,6 +99,32 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     const [localAdmins, setLocalAdmins] = useState<Admin[]>([]);
     const [localUsers, setLocalUsers] = useState<User[]>([]);
 
+    // Dashboard Stats (server-side aggregation)
+    const [dashboardStats, setDashboardStats] = useState<{
+        totalUsers: number;
+        totalBalance: number;
+        pendingWithdrawals: number;
+        pendingTasks: number;
+        todayRegistrations: number;
+    } | null>(null);
+
+    // Paginated Users List State
+    const [usersPage, setUsersPage] = useState(1);
+    const [usersTotal, setUsersTotal] = useState(0);
+    const usersPerPage = 20;
+    const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+    const [userSearch, setUserSearch] = useState(''); // 用户搜索关键词（邮箱/UID/手机号）
+
+    // Reset page when search changes
+    useEffect(() => {
+        setUsersPage(1);
+    }, [userSearch]);
+
+    // Pending Tasks and Withdrawals (from dedicated APIs)
+    const [pendingTasksList, setPendingTasksList] = useState<any[]>([]);
+    const [auditHistoryList, setAuditHistoryList] = useState<any[]>([]);
+    const [withdrawalsList, setWithdrawalsList] = useState<any[]>([]);
+
     // --- FORM STATES ---
     const [actTitle, setActTitle] = useState('');
     const [actTitleColor, setActTitleColor] = useState('#ffffff');
@@ -131,27 +157,92 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     const [newAdmin, setNewAdmin] = useState({ username: '', password: '', role: 'editor' });
     const [msgData, setMsgData] = useState({ userId: 'all', title: '', content: '', amount: '0' });
     const [userSort, setUserSort] = useState<'reg' | 'bal' | 'earnings'>('reg');
-    const [userSearch, setUserSearch] = useState(''); // 用户搜索关键词（邮箱/UID/手机号）
     const [msgSearch, setMsgSearch] = useState('');
     const [msgPage, setMsgPage] = useState(1);
     const [msgTotal, setMsgTotal] = useState(0);
     const [adminMessages, setAdminMessages] = useState<any[]>([]);
     const msgPageSize = 20;
 
+    // --- TRANSACTION HISTORY STATE ---
+    const [historyUser, setHistoryUser] = useState<User | null>(null);
+    const [historyTransactions, setHistoryTransactions] = useState<any[]>([]);
+    const [historyPage, setHistoryPage] = useState(1);
+    const [historyTotal, setHistoryTotal] = useState(0);
+    const historyPageSize = 20;
+    const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
     useEffect(() => { checkApiKey(); }, []);
+
+    // Fetch dashboard stats
+    const refreshDashboardStats = async () => {
+        try {
+            const stats = await api.getDashboardStats();
+            setDashboardStats(stats);
+        } catch (e) {
+            console.error('Failed to load dashboard stats', e);
+        }
+    };
+
+    // Fetch paginated users
+    const fetchPaginatedUsers = async (page: number, search?: string) => {
+        setIsLoadingUsers(true);
+        try {
+            const res = await api.getPaginatedUsers(page, usersPerPage, search);
+            setLocalUsers(res.users || []);
+            setUsersTotal(res.total || 0);
+            setUsersPage(page);
+        } catch (e) {
+            console.error('Failed to load users', e);
+        } finally {
+            setIsLoadingUsers(false);
+        }
+    };
+
+    // Fetch pending tasks (audit queue)
+    const fetchPendingTasks = async () => {
+        try {
+            const res = await api.getPendingTasks();
+            setPendingTasksList(res.tasks || []);
+        } catch (e) {
+            console.error('Failed to load pending tasks', e);
+        }
+    };
+
+    // Fetch audit history
+    const fetchAuditHistory = async () => {
+        try {
+            const res = await api.getAuditHistory();
+            setAuditHistoryList(res.tasks || []);
+        } catch (e) {
+            console.error('Failed to load audit history', e);
+        }
+    };
+
+    // Fetch withdrawals list
+    const fetchWithdrawals = async () => {
+        try {
+            const res = await api.getPendingWithdrawals();
+            setWithdrawalsList(res.withdrawals || []);
+        } catch (e) {
+            console.error('Failed to load withdrawals', e);
+        }
+    };
 
     // Fetch initial data and Restore Session
     useEffect(() => {
         const loadInitData = async () => {
             try {
-                const [adminsRes, usersRes] = await Promise.all([
+                const [adminsRes] = await Promise.all([
                     api.getAdmins().catch(e => ({ admins: [] })),
-                    api.getAllUsers().catch(e => ({ users: [] }))
+                    refreshDashboardStats(),
+                    fetchPaginatedUsers(1),
+                    fetchPendingTasks(),
+                    fetchAuditHistory(),
+                    fetchWithdrawals()
                 ]);
 
                 // @ts-ignore
                 setLocalAdmins(adminsRes.admins || []);
-                setLocalUsers(usersRes.users || []);
 
                 const savedAdminId = localStorage.getItem('ruanggamer_admin_session');
                 if (savedAdminId) {
@@ -187,6 +278,16 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         }
     }, [view, msgPage, msgSearch]);
 
+    // Fetch paginated users with debounce for search
+    useEffect(() => {
+        if (view === 'users') {
+            const timer = setTimeout(() => {
+                fetchPaginatedUsers(usersPage, userSearch);
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [view, usersPage, userSearch]);
+
     // Save view state when it changes
     useEffect(() => {
         if (session) {
@@ -211,21 +312,22 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     useSupabaseRealtime(adminRealtimeConfig, async (payload) => {
         console.log('--- ADMIN REALTIME EVENT ---', payload.table, payload.event);
 
-        // Always refresh users list to get the latest state including nested data
+        // Refresh stats and pending data on realtime events
         if (payload.table === 'user_tasks') {
-            console.log('User Task activity detected! Refreshing users...');
-            const res = await api.getAllUsers();
-            if (res.users) {
-                setLocalUsers(res.users);
-                console.log('Dashboard data updated.');
-            }
+            console.log('User Task activity detected! Refreshing...');
+            await Promise.all([
+                refreshDashboardStats(),
+                fetchPendingTasks()
+            ]);
         }
 
         if (payload.table === 'transactions' && payload.event === 'INSERT') {
-            if (payload.new.type === 'withdraw' || payload.new.type === 'task_reward') {
-                console.log('Transaction detected! Refreshing...');
-                const res = await api.getAllUsers();
-                if (res.users) setLocalUsers(res.users);
+            if (payload.new.type === 'withdraw' || payload.new.type === 'withdrawal') {
+                console.log('Withdrawal detected! Refreshing...');
+                await Promise.all([
+                    refreshDashboardStats(),
+                    fetchWithdrawals()
+                ]);
             }
         }
     });
@@ -479,9 +581,11 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         (async () => {
             try {
                 await api.auditTask(userId, taskId, status);
-                // Final sync to ensure everything (balance, etc) is correct
-                const res = await api.getAllUsers();
-                if (res.users) setLocalUsers(res.users);
+                // Refresh current page and stats
+                await refreshDashboardStats();
+                await fetchPaginatedUsers(usersPage, userSearch);
+                await fetchPendingTasks();
+                await fetchAuditHistory();
             } catch (e: any) {
                 console.error("Background task audit failed:", e);
                 alert("Audit failed, rolling back: " + e.message);
@@ -509,8 +613,9 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         (async () => {
             try {
                 await api.auditWithdrawal(txId, status);
-                const res = await api.getAllUsers();
-                if (res.users) setLocalUsers(res.users);
+                // Refresh current page and stats
+                await refreshDashboardStats();
+                await fetchPaginatedUsers(usersPage, userSearch);
             } catch (e: any) {
                 console.error("Background withdrawal audit failed:", e);
                 alert("Withdrawal audit failed, rolling back: " + e.message);
@@ -519,19 +624,36 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         })();
     };
 
+    const fetchUserHistory = async (userId: string, page: number) => {
+        setIsHistoryLoading(true);
+        try {
+            const res = await api.getAdminUserTransactions(userId, page, historyPageSize);
+            setHistoryTransactions(res.transactions);
+            setHistoryTotal(res.total);
+            setHistoryPage(page);
+        } catch (e: any) {
+            alert("Failed to fetch history: " + e.message);
+        } finally {
+            setIsHistoryLoading(false);
+        }
+    };
+
+    const openHistory = (user: User) => {
+        setHistoryUser(user);
+        setHistoryTransactions([]);
+        setHistoryTotal(0);
+        setHistoryPage(1);
+        fetchUserHistory(user.id, 1);
+    };
+
     if (!session) return <AdminLogin onLogin={handleLogin} />;
 
     const users = localUsers;
 
-    const auditTasks = users.flatMap(u => (u.myTasks || []).filter(t => t.status === 'reviewing'))
-        .sort((a, b) => new Date(b.submissionTime || b.startTime).getTime() - new Date(a.submissionTime || a.startTime).getTime());
-    const auditHistory = users.flatMap(u => (u.myTasks || []).filter(t => t.status === 'completed' || t.status === 'rejected'))
-        .sort((a, b) => new Date(b.submissionTime || b.startTime).getTime() - new Date(a.submissionTime || a.startTime).getTime());
-
-    const withdrawals = users.flatMap(u => (u.transactions || [])
-        .filter(tx => tx.type === 'withdraw')
-        .map(tx => ({ ...tx, user: u }))
-    ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // Use dedicated API data instead of extracting from nested user data
+    const auditTasks = pendingTasksList;
+    const auditHistory = auditHistoryList;
+    const withdrawals = withdrawalsList;
 
     // 先过滤再排序
     const filteredUsers = users.filter(u => {
@@ -550,9 +672,9 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         return new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime();
     });
 
-    const totalUsers = users.length;
-    const totalWithdrawals = withdrawals.reduce((sum, w) => sum + Math.abs(w.amount), 0);
-    const totalCommissions = users.flatMap(u => u.transactions).filter(t => t.type === 'referral_bonus').reduce((sum, t) => sum + t.amount, 0);
+    const totalUsers = dashboardStats?.totalUsers || users.length;
+    const totalWithdrawals = withdrawals.reduce((sum, w) => sum + Math.abs(w.amount || 0), 0);
+    const totalCommissions = 0; // No longer calculated from nested data - could be added as separate API
 
     const chartData = [12, 19, 3, 5, 2, 3, totalUsers];
     const payoutData = [500, 1000, 750, 200, 1500, 300, totalWithdrawals / 1000];
@@ -874,28 +996,42 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                         <>
                                             {auditTasks.length === 0 && <tr><td colSpan={4} className="p-12 text-center text-slate-400">All caught up!</td></tr>}
                                             {auditTasks.map(task => {
-                                                const user = users.find(u => (u.myTasks || []).some(t => t.id === task.id));
+                                                // Use user info from the task itself (from API)
                                                 return (
                                                     <tr key={task.id}>
-                                                        <td className="p-4"><div className="font-bold">{user?.phone}</div><div className="text-xs text-slate-400">ID: {user?.id}</div></td>
-                                                        <td className="p-4"><div className="font-bold text-indigo-600">{task.platformName}</div><div className="text-xs">Reward: {task.rewardAmount}</div></td>
-                                                        <td className="p-4"><div className="text-xs text-slate-500">{task.submissionTime ? new Date(task.submissionTime).toLocaleString() : '-'}</div></td>
                                                         <td className="p-4">
-                                                            {task.proofImageUrl ? (
-                                                                <button onClick={() => setImageModalUrl(task.proofImageUrl!)} className="flex items-center gap-1 text-indigo-600 text-sm font-bold bg-indigo-50 px-3 py-1 rounded hover:bg-indigo-100">
+                                                            <div className="font-bold">{task.userPhone || task.userEmail || 'Unknown'}</div>
+                                                            <div className="text-xs text-slate-400">ID: {task.userId || task.user_id}</div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="font-bold text-indigo-600">{task.platformName || task.platform_name || 'Task'}</div>
+                                                            <div className="text-xs">Reward: {task.rewardAmount || task.reward_amount || 0}</div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="text-xs text-slate-500">
+                                                                {(task.submissionTime || task.submission_time)
+                                                                    ? new Date(task.submissionTime || task.submission_time).toLocaleString()
+                                                                    : '-'}
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            {(task.proofImageUrl || task.proof_image_url) ? (
+                                                                <button onClick={() => setImageModalUrl(task.proofImageUrl || task.proof_image_url)} className="flex items-center gap-1 text-indigo-600 text-sm font-bold bg-indigo-50 px-3 py-1 rounded hover:bg-indigo-100">
                                                                     <Eye size={14} /> View
                                                                 </button>
                                                             ) : 'No Image'}
                                                         </td>
                                                         <td className="p-4 flex gap-2">
                                                             <button onClick={() => {
-                                                                if (user) {
-                                                                    handleOptimisticAuditTask(user.id, task.id, 'completed');
+                                                                const userId = task.userId || task.user_id;
+                                                                if (userId) {
+                                                                    handleOptimisticAuditTask(userId, task.id, 'completed');
                                                                 }
                                                             }} className="bg-green-100 text-green-700 px-3 py-1 rounded font-bold hover:bg-green-200">Approve</button>
                                                             <button onClick={() => {
-                                                                if (user) {
-                                                                    handleOptimisticAuditTask(user.id, task.id, 'rejected');
+                                                                const userId = task.userId || task.user_id;
+                                                                if (userId) {
+                                                                    handleOptimisticAuditTask(userId, task.id, 'rejected');
                                                                 }
                                                             }} className="bg-red-100 text-red-700 px-3 py-1 rounded font-bold hover:bg-red-200">Reject</button>
                                                         </td>
@@ -907,25 +1043,27 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                         <>
                                             {auditHistory.length === 0 && <tr><td colSpan={4} className="p-12 text-center text-slate-400">No history yet.</td></tr>}
                                             {auditHistory.map(task => {
-                                                const user = users.find(u => (u.myTasks || []).some(t => t.id === task.id));
+                                                // Use user info from the task itself (from API)
                                                 return (
                                                     <tr key={task.id} className="opacity-75 grayscale hover:grayscale-0 hover:opacity-100 transition-all">
                                                         <td className="p-4">
-                                                            <div className="font-bold text-slate-700">{user?.phone || 'Unknown User'}</div>
-                                                            <div className="text-[10px] text-slate-400">ID: {user?.id}</div>
+                                                            <div className="font-bold text-slate-700">{task.userPhone || task.userEmail || 'Unknown'}</div>
+                                                            <div className="text-[10px] text-slate-400">ID: {task.userId || task.user_id}</div>
                                                         </td>
                                                         <td className="p-4">
-                                                            <div className="font-bold text-slate-700">{task.platformName}</div>
-                                                            <div className="text-[10px] text-slate-400">Reward: {task.rewardAmount}</div>
+                                                            <div className="font-bold text-slate-700">{task.platformName || task.platform_name || 'Task'}</div>
+                                                            <div className="text-[10px] text-slate-400">Reward: {task.rewardAmount || task.reward_amount || 0}</div>
                                                         </td>
                                                         <td className="p-4">
                                                             <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded inline-block">
-                                                                {task.submissionTime ? new Date(task.submissionTime).toLocaleString() : '-'}
+                                                                {(task.submissionTime || task.submission_time)
+                                                                    ? new Date(task.submissionTime || task.submission_time).toLocaleString()
+                                                                    : '-'}
                                                             </div>
                                                         </td>
                                                         <td className="p-4">
-                                                            {task.proofImageUrl ? (
-                                                                <button onClick={() => setImageModalUrl(task.proofImageUrl!)} className="flex items-center gap-1 text-indigo-600 text-xs font-bold bg-indigo-50 px-3 py-1 rounded hover:bg-indigo-100 transition-colors">
+                                                            {(task.proofImageUrl || task.proof_image_url) ? (
+                                                                <button onClick={() => setImageModalUrl(task.proofImageUrl || task.proof_image_url)} className="flex items-center gap-1 text-indigo-600 text-xs font-bold bg-indigo-50 px-3 py-1 rounded hover:bg-indigo-100 transition-colors">
                                                                     <Eye size={12} /> View Proof
                                                                 </button>
                                                             ) : <span className="text-xs text-slate-300">No Image</span>}
@@ -954,10 +1092,15 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                 {withdrawals.length === 0 && <tr><td colSpan={6} className="p-12 text-center text-slate-400">No withdrawals found.</td></tr>}
                                 {withdrawals.map(tx => (
                                     <tr key={tx.id}>
-                                        <td className="p-4 text-xs text-slate-500">{new Date(tx.date).toLocaleString()}</td>
-                                        <td className="p-4"><div className="font-bold">{tx.user.phone}</div><div className="text-xs text-slate-400">ID: {tx.user.id}</div></td>
-                                        <td className="p-4 font-mono font-bold text-red-600">{Math.abs(tx.amount)}</td>
-                                        <td className="p-4 text-sm">{tx.description}</td>
+                                        <td className="p-4 text-xs text-slate-500">
+                                            {(tx.date || tx.created_at) ? new Date(tx.date || tx.created_at).toLocaleString() : '-'}
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="font-bold">{tx.userPhone || tx.userEmail || 'Unknown'}</div>
+                                            <div className="text-xs text-slate-400">ID: {tx.userId || tx.user_id}</div>
+                                        </td>
+                                        <td className="p-4 font-mono font-bold text-red-600">{Math.abs(tx.amount || 0)}</td>
+                                        <td className="p-4 text-sm">{tx.description || '-'}</td>
                                         <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold uppercase ${tx.status === 'success' ? 'bg-green-100 text-green-700' : tx.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{tx.status}</span></td>
                                         <td className="p-4 flex gap-2">
                                             {tx.status === 'pending' && (
@@ -1007,7 +1150,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
 
                             {/* 用户计数 */}
                             <div className="text-xs text-slate-500">
-                                Showing {sortedUsers.length} of {users.length} users
+                                Showing {localUsers.length} users (Total: {usersTotal})
                             </div>
                         </div>
                         <table className="w-full text-left">
@@ -1045,14 +1188,13 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                         <td className="p-4 text-xs text-slate-500">{u.registrationDate ? new Date(u.registrationDate).toLocaleDateString() + ' ' + new Date(u.registrationDate).toLocaleTimeString() : '-'}</td>
                                         <td className="p-4 font-mono font-bold text-indigo-600">{u.currency} {u.totalEarnings}</td>
                                         <td className="p-4 flex gap-2">
-
+                                            <button onClick={() => openHistory(u)} className="text-xs border border-indigo-300 bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1"><List size={10} /> History</button>
                                             <button onClick={() => handleResetUserPassword(u.id)} className="text-xs border border-slate-300 px-2 py-1 rounded hover:bg-slate-100 flex items-center gap-1"><Lock size={10} /> Reset</button>
                                             <button onClick={async () => {
                                                 try {
                                                     await api.banUser(u.id, !u.isBanned);
-                                                    // Refresh
-                                                    const res = await api.getAllUsers();
-                                                    setLocalUsers(res.users);
+                                                    // Refresh current page
+                                                    await fetchPaginatedUsers(usersPage, userSearch);
                                                 } catch (e: any) { alert("Action failed: " + e.message); }
                                             }} className={`text-xs border px-2 py-1 rounded flex items-center gap-1 ${u.isBanned ? 'border-green-300 bg-green-50 text-green-600' : 'border-red-300 bg-red-50 text-red-600'}`}>
                                                 <Ban size={10} /> {u.isBanned ? 'Unban' : 'Ban'}
@@ -1063,6 +1205,29 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                 ))}
                             </tbody>
                         </table>
+
+                        {/* Pagination Controls */}
+                        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                            <div className="text-xs text-slate-500">
+                                Page {usersPage} of {Math.ceil(usersTotal / usersPerPage) || 1}
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setUsersPage(prev => Math.max(1, prev - 1))}
+                                    disabled={usersPage <= 1 || isLoadingUsers}
+                                    className={`px-3 py-1 rounded border text-xs font-bold transition-all ${usersPage <= 1 ? 'text-slate-300 border-slate-200' : 'text-slate-600 border-slate-300 hover:bg-white active:scale-95'}`}
+                                >
+                                    Previous
+                                </button>
+                                <button
+                                    onClick={() => setUsersPage(prev => prev + 1)}
+                                    disabled={usersPage * usersPerPage >= usersTotal || isLoadingUsers}
+                                    className={`px-3 py-1 rounded border text-xs font-bold transition-all ${usersPage * usersPerPage >= usersTotal ? 'text-slate-300 border-slate-200' : 'text-slate-600 border-slate-300 hover:bg-white active:scale-95'}`}
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -1354,6 +1519,108 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                     </div>
                 )}
             </main>
+
+            {/* --- TRANSACTION HISTORY DRAWER --- */}
+            {historyUser && (
+                <div className="fixed inset-0 z-[100] flex justify-end">
+                    <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setHistoryUser(null)}></div>
+                    <div className="relative w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-800">Riwayat Transaksi: {historyUser.phone}</h3>
+                                <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">User ID: {historyUser.id}</p>
+                            </div>
+                            <button onClick={() => setHistoryUser(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><X size={24} /></button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {isHistoryLoading ? (
+                                <div className="h-64 flex items-center justify-center text-indigo-600 font-bold">Loading transactions...</div>
+                            ) : (
+                                <table className="w-full text-left">
+                                    <thead className="text-xs font-bold text-slate-400 border-b border-slate-100 uppercase tracking-wider">
+                                        <tr>
+                                            <th className="pb-3 px-2">Waktu</th>
+                                            <th className="pb-3 px-2">Tipe</th>
+                                            <th className="pb-3 px-2">Jumlah</th>
+                                            <th className="pb-3 px-2">Keterangan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {historyTransactions.length === 0 ? (
+                                            <tr><td colSpan={4} className="py-20 text-center text-slate-400 italic">No transactions found for this user.</td></tr>
+                                        ) : (
+                                            historyTransactions.map(tx => {
+                                                const isPositive = ['reward', 'commission', 'task_reward', 'deposit'].includes(tx.type);
+                                                const amountColor = isPositive ? 'text-green-600' : 'text-red-600';
+
+                                                // Type display and styling
+                                                let typeLabel = tx.type;
+                                                let typeBadgeClass = "bg-slate-100 text-slate-600";
+
+                                                if (tx.type === 'task_reward') {
+                                                    typeLabel = 'Reward';
+                                                    typeBadgeClass = "bg-green-100 text-green-700";
+                                                } else if (tx.type === 'withdrawal') {
+                                                    typeLabel = 'WD';
+                                                    typeBadgeClass = "bg-red-100 text-red-700";
+                                                } else if (tx.type === 'commission') {
+                                                    typeLabel = 'Comm';
+                                                    typeBadgeClass = "bg-blue-100 text-blue-700";
+                                                }
+
+                                                return (
+                                                    <tr key={tx.id} className="text-sm">
+                                                        <td className="py-4 px-2 text-slate-500 font-mono text-[11px] whitespace-nowrap">
+                                                            {new Date(tx.created_at).toLocaleString('zh-CN', { hour12: false, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '')}
+                                                        </td>
+                                                        <td className="py-4 px-2">
+                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${typeBadgeClass}`}>
+                                                                {typeLabel}
+                                                            </span>
+                                                        </td>
+                                                        <td className={`py-4 px-2 font-mono font-bold text-[13px] whitespace-nowrap ${amountColor}`}>
+                                                            {isPositive ? '+' : '-'}Rp {Math.abs(tx.amount).toLocaleString()}
+                                                        </td>
+                                                        <td className="py-4 px-2 text-slate-600 max-w-[200px] truncate" title={tx.description}>
+                                                            {tx.description}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+
+                        {historyTotal > historyPageSize && (
+                            <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                                <p className="text-xs text-slate-500 font-bold">
+                                    Total: {historyTotal} records
+                                </p>
+                                <div className="flex gap-2">
+                                    <button
+                                        disabled={historyPage === 1 || isHistoryLoading}
+                                        onClick={() => fetchUserHistory(historyUser.id, historyPage - 1)}
+                                        className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-50 disabled:opacity-50"
+                                    >
+                                        Prev
+                                    </button>
+                                    <span className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold">{historyPage}</span>
+                                    <button
+                                        disabled={historyPage * historyPageSize >= historyTotal || isHistoryLoading}
+                                        onClick={() => fetchUserHistory(historyUser.id, historyPage + 1)}
+                                        className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-50 disabled:opacity-50"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

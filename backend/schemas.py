@@ -185,14 +185,21 @@ class UserResponse(UserBase):
     referral_code: str = Field(..., alias="referralCode")
     referrer_id: Optional[str] = Field(None, alias="referrerId")
     invited_count: int = Field(0, alias="invitedCount")
+    
+    # Slim lists for performance
     user_tasks: list[UserTask] = Field(default_factory=list, alias="myTasks")
-
     liked_task_ids: list[str] = Field(default_factory=list, alias="likedTaskIds")
     registration_date: datetime = Field(..., alias="registrationDate")
     bank_accounts: list[BankAccount] = Field(default_factory=list, alias="bankAccounts")
     role: UserRole = UserRole.USER
     messages: list[Message] = Field(default_factory=list)
     transactions: list[Transaction] = Field(default_factory=list)
+    
+    # New counters for slim mode
+    unread_msg_count: int = Field(0, alias="unreadMsgCount")
+    unread_tx_count: int = Field(0, alias="unreadTxCount")
+    ongoing_task_count: int = Field(0, alias="ongoingTaskCount")
+
     theme: Optional[str] = "gold"
     is_banned: bool = Field(False, alias="isBanned")
 
@@ -213,6 +220,25 @@ class PlatformBase(BaseModel):
     download_link: str = Field(..., alias="downloadLink")
     first_deposit_amount: float = Field(0, alias="firstDepositAmount")
     reward_amount: float = Field(..., alias="rewardAmount")
+
+
+class PlatformSlim(PlatformBase):
+    """精简版的平台信息，用于列表展示"""
+    id: str
+    name_color: Optional[str] = Field(None, alias="nameColor")
+    is_hot: bool = Field(False, alias="isHot")
+    is_pinned: bool = Field(False, alias="isPinned")
+    remaining_qty: int = Field(0, alias="remainingQty")
+    total_qty: int = Field(0, alias="totalQty")
+    likes: int = 0
+    status: PlatformStatus = PlatformStatus.ONLINE
+    type: PlatformType = PlatformType.DEPOSIT
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        from_attributes=True
+    )
+
 
 
 # 任务步骤，支持文本和可选的图片
@@ -267,6 +293,21 @@ class Activity(ActivityBase):
         from_attributes = True
 
 
+class ActivitySlim(BaseModel):
+    """精简版的活动信息"""
+    id: str
+    title: str
+    title_color: Optional[str] = Field(None, alias="titleColor")
+    image_url: str = Field(..., alias="imageUrl")
+    active: bool = True
+    show_popup: bool = Field(False, alias="showPopup")
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        from_attributes=True
+    )
+
+
 # ============================================
 # VIP 配置
 # ============================================
@@ -311,8 +352,14 @@ class AuthResponse(BaseModel):
 
 
 class InitialDataResponse(BaseModel):
-    platforms: list[Platform]
-    activities: list[Activity]
+    platforms: list[PlatformSlim]
+    activities: list[ActivitySlim]
+
+
+class ConfigItemResponse(BaseModel):
+    """用于动态获取单个配置项内容"""
+    key: str
+    value: Any
 
 
 class BindPhoneRequest(BaseModel):
@@ -341,6 +388,18 @@ class AdminMessageResponse(Message):
 class PaginatedMessagesResponse(BaseModel):
     messages: list[AdminMessageResponse]
     total: int
+
+class UserTransactionResponse(BaseModel):
+    transactions: list[Transaction]
+    total: int
+    page: int
+    per_page: int = Field(..., alias="perPage")
+
+class UserTaskResponse(BaseModel):
+    tasks: list[UserTask]
+    total: int
+    page: int
+    per_page: int = Field(..., alias="perPage")
 
 
 class ErrorResponse(BaseModel):

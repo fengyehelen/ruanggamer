@@ -134,22 +134,196 @@ async def create_admin(admin_data: AdminCreateRequest, db: Client = Depends(get_
         role=new_admin["role"]
     )
 
-@router.get("/users", response_model=dict[str, list[UserResponse]], response_model_by_alias=True)
-async def get_all_users(db: Client = Depends(get_db)):
+class DashboardStats(BaseModel):
+    """仪表盘统计数据"""
+    totalUsers: int
+    totalBalance: float
+    pendingWithdrawals: int
+    pendingTasks: int
+    todayRegistrations: int
 
-    """获取所有用户列表（Admin Only）"""
-    # 获取用户及其关联数据, 包括银行账户
-    res = db.table("users").select("*, transactions(*), user_tasks(*), bank_accounts(*), messages(*)").execute()
 
+@router.get("/dashboard-stats", response_model=DashboardStats)
+async def get_dashboard_stats(db: Client = Depends(get_db)):
+    """
+    获取仪表盘统计数据 (服务端聚合)
+    使用 SQL COUNT/SUM 直接计算，返回 < 1KB
+    """
+    from datetime import date, timedelta
+    today = date.today().isoformat()
     
-    if not res.data:
-        return {"users": []}
-        
-    if not res.data:
-        return {"users": []}
-        
-    return {"users": res.data}
+    # Total users count
+    users_res = db.table("users").select("id", count="exact").execute()
+    total_users = users_res.count if hasattr(users_res, 'count') and users_res.count else 0
+    
+    # Sum of all user balances
+    balance_res = db.table("users").select("balance").execute()
+    total_balance = sum(u.get("balance", 0) for u in (balance_res.data or []))
+    
+    # Pending withdrawals count
+    pending_wd_res = db.table("transactions").select("id", count="exact").eq("type", "withdraw").eq("status", "pending").execute()
+    pending_withdrawals = pending_wd_res.count if hasattr(pending_wd_res, 'count') and pending_wd_res.count else 0
+    
+    # Pending tasks count
+    pending_tasks_res = db.table("user_tasks").select("id", count="exact").eq("status", "reviewing").execute()
+    pending_tasks = pending_tasks_res.count if hasattr(pending_tasks_res, 'count') and pending_tasks_res.count else 0
+    
+    # Today registrations
+    today_reg_res = db.table("users").select("id", count="exact").gte("created_at", today).execute()
+    today_registrations = today_reg_res.count if hasattr(today_reg_res, 'count') and today_reg_res.count else 0
+    
+    return DashboardStats(
+        totalUsers=total_users,
+        totalBalance=total_balance,
+        pendingWithdrawals=pending_withdrawals,
+        pendingTasks=pending_tasks,
+        todayRegistrations=today_registrations
+    )
 
+
+class PaginatedUsersResponse(BaseModel):
+    """分页用户列表响应"""
+    users: list
+    total: int
+    page: int
+    perPage: int
+
+
+@router.get("/users", response_model=PaginatedUsersResponse)
+async def get_all_users(
+    page: int = 1,
+    per_page: int = 20,
+    search: Optional[str] = None,
+    db: Client = Depends(get_db)
+):
+    """
+    获取用户列表（分页，精简数据）
+    不返回嵌套的 transactions/tasks/messages
+    """
+    start = (page - 1) * per_page
+    end = start + per_page - 1
+    
+    # Select essential user fields + bank accounts + total_earnings
+    query = db.table("users").select(
+        "id, email, phone, balance, referral_code, is_banned, vip_level, total_earnings, created_at, bank_accounts(*)",
+        count="exact"
+    )
+    
+    if search:
+        # Search by email, phone, or referral code
+        query = query.or_(f"email.ilike.%{search}%,phone.ilike.%{search}%,referral_code.ilike.%{search}%")
+    
+    res = query.order("created_at", desc=True).range(start, end).execute()
+    total = res.count if hasattr(res, 'count') and res.count else 0
+    
+    # Transform to frontend field names (camelCase)
+    transformed_users = []
+    for u in (res.data or []):
+        transformed_users.append({
+            "id": u.get("id"),
+            "email": u.get("email"),
+            "phone": u.get("phone"),
+            "balance": u.get("balance", 0),
+            "referralCode": u.get("referral_code"),
+            "isBanned": u.get("is_banned", False),
+            "vipLevel": u.get("vip_level", 0),
+            "totalEarnings": u.get("total_earnings", 0),
+            "registrationDate": u.get("created_at"),
+            "currency": "IDR",  # Default currency for Indonesia
+            "bankAccounts": [
+                {
+                    "bankName": ba.get("bank_name"),
+                    "accountNumber": ba.get("account_number"),
+                    "accountName": ba.get("account_name")
+                } for ba in (u.get("bank_accounts") or [])
+            ]
+        })
+    
+    return PaginatedUsersResponse(
+        users=transformed_users,
+        total=total,
+        page=page,
+        perPage=per_page
+    )
+
+
+@router.get("/pending-tasks")
+async def get_pending_tasks(db: Client = Depends(get_db)):
+    """
+    获取待审核任务列表 (status='reviewing')
+    返回包含用户信息的任务列表
+    """
+    # Get all reviewing tasks with user info
+    tasks_res = db.table("user_tasks").select(
+        "*, users(id, email, phone, referral_code)"
+    ).eq("status", "reviewing").order("submission_time", desc=True).execute()
+    
+    # Transform to include user info directly
+    tasks = []
+    for t in (tasks_res.data or []):
+        user = t.pop("users", {}) or {}
+        tasks.append({
+            **t,
+            "userId": user.get("id"),
+            "userEmail": user.get("email"),
+            "userPhone": user.get("phone"),
+            "userReferralCode": user.get("referral_code")
+        })
+    
+    return {"tasks": tasks, "total": len(tasks)}
+
+
+@router.get("/audit-history")
+async def get_audit_history(db: Client = Depends(get_db)):
+    """
+    获取已审核任务列表 (status='completed' or 'rejected')
+    返回包含用户信息的任务列表
+    """
+    # Get completed/rejected tasks with user info
+    tasks_res = db.table("user_tasks").select(
+        "*, users(id, email, phone, referral_code)"
+    ).in_("status", ["completed", "rejected"]).order("updated_at", desc=True).limit(100).execute()
+    
+    # Transform to include user info directly
+    tasks = []
+    for t in (tasks_res.data or []):
+        user = t.pop("users", {}) or {}
+        tasks.append({
+            **t,
+            "userId": user.get("id"),
+            "userEmail": user.get("email"),
+            "userPhone": user.get("phone"),
+            "userReferralCode": user.get("referral_code")
+        })
+    
+    return {"tasks": tasks, "total": len(tasks)}
+
+@router.get("/pending-withdrawals")
+async def get_pending_withdrawals(db: Client = Depends(get_db)):
+    """
+    获取所有提现记录 (按时间倒序)
+    返回包含用户信息和银行账户的交易列表
+    """
+    # Get all withdrawal transactions with user and bank info
+    tx_res = db.table("transactions").select(
+        "*, users(id, email, phone, referral_code, bank_accounts(*))"
+    ).eq("type", "withdraw").order("created_at", desc=True).limit(200).execute()
+    
+    # Transform to include user info directly
+    withdrawals = []
+    for tx in (tx_res.data or []):
+        user = tx.pop("users", {}) or {}
+        bank_accounts = user.pop("bank_accounts", []) or []
+        withdrawals.append({
+            **tx,
+            "userId": user.get("id"),
+            "userEmail": user.get("email"),
+            "userPhone": user.get("phone"),
+            "userReferralCode": user.get("referral_code"),
+            "bankAccounts": bank_accounts
+        })
+    
+    return {"withdrawals": withdrawals, "total": len(withdrawals)}
 
 class AuditTaskRequest(BaseModel):
     userId: str
@@ -321,6 +495,43 @@ async def change_admin_password(req: AdminChangePasswordRequest, db: Client = De
     db.table("admins").update({"password": hashed_password}).eq("id", req.adminId).execute()
     
     return {"message": "Password updated successfully"}
+
+
+@router.get("/users/{user_id}/transactions")
+async def get_user_transactions(
+    user_id: str, 
+    page: int = 1, 
+    per_page: int = 20, 
+    db: Client = Depends(get_db)
+):
+    """获取指定用户的交易流水"""
+    start = (page - 1) * per_page
+    end = start + per_page - 1
+    
+    # 查询交易记录，按 created_at 倒序
+    result = db.table("transactions") \
+        .select("*") \
+        .eq("user_id", user_id) \
+        .order("created_at", desc=True) \
+        .range(start, end) \
+        .execute()
+        
+    # 获取总数以支持分页
+    count_res = db.table("transactions") \
+        .select("id", count="exact") \
+        .eq("user_id", user_id) \
+        .execute()
+    
+    total = count_res.count if hasattr(count_res, 'count') else len(result.data)
+    if total is None: # Fallback
+        total = len(result.data)
+
+    return {
+        "transactions": result.data,
+        "total": total,
+        "page": page,
+        "per_page": per_page
+    }
 
 
 class AuditWithdrawalRequest(BaseModel):

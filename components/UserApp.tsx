@@ -4,6 +4,7 @@ import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { User, Platform, Activity, Language, SortOption, UserTask, Transaction, Message, SystemConfig, BankAccount } from '../types';
 import { TRANSLATIONS, LANGUAGES, BANK_OPTIONS } from '../constants';
 import { api } from '../services/api';
+import { useTransactions, useTasks, useMessages, useTaskDetail, useActivityDetail, useConfigItem } from '../hooks/useData';
 
 import {
     ArrowLeft, ChevronRight, Copy, Upload, Clock, XCircle, User as UserIcon, Users,
@@ -167,8 +168,15 @@ export const RewardPopup: React.FC<{ tx: Transaction; onClose: () => void }> = (
     );
 };
 
-export const StaticPageView: React.FC<{ title: string; content: string; }> = ({ title, content }) => {
+export const StaticPageView: React.FC<{ title: string; content: string; configKey?: string; }> = ({ title, content, configKey }) => {
     const navigate = useNavigate();
+
+    // Use SWR to fetch large config content on demand if needed
+    const needsFetch = configKey && (!content || content.includes("[SLIM]") || content === "");
+    const { content: fetchedContent, isLoading } = useConfigItem(needsFetch ? configKey : undefined);
+
+    const realContent = fetchedContent || content;
+
     return (
         <div className="min-h-screen bg-slate-900">
             <div className="sticky top-0 bg-slate-900 border-b border-slate-800 p-4 flex items-center gap-3 z-20">
@@ -176,7 +184,13 @@ export const StaticPageView: React.FC<{ title: string; content: string; }> = ({ 
                 <h1 className="font-bold text-lg text-slate-200">{title}</h1>
             </div>
             <div className="p-6 text-slate-400 whitespace-pre-wrap text-sm leading-relaxed">
-                {content || "No content available."}
+                {isLoading ? (
+                    <div className="flex flex-col gap-2">
+                        <div className="h-4 bg-slate-800 rounded w-full animate-pulse"></div>
+                        <div className="h-4 bg-slate-800 rounded w-5/6 animate-pulse"></div>
+                        <div className="h-4 bg-slate-800 rounded w-4/6 animate-pulse"></div>
+                    </div>
+                ) : (realContent || "No content available.")}
             </div>
         </div>
     );
@@ -186,14 +200,20 @@ export const TransactionHistoryView: React.FC<{ user: User; t: any }> = ({ user,
     const navigate = useNavigate();
     const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
 
-    const filtered = (user.transactions || []).filter(tx => {
+    // Use SWR hook for smart caching
+    const { transactions, isLoading, hasMore, size, setSize, isLoadingMore } = useTransactions(user.id);
+
+    const filtered = (transactions || []).filter(tx => {
         if (filter === 'all') return true;
         if (filter === 'income') return tx.amount > 0;
         return tx.amount < 0;
     });
 
+    // Show cached data if available, only show loading if no data at all
+    const showLoading = isLoading && transactions.length === 0;
+
     return (
-        <div className="min-h-screen bg-slate-900">
+        <div className="min-h-screen bg-slate-900 pb-10">
             <div className="sticky top-0 bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between z-20">
                 <div className="flex items-center gap-3">
                     <button onClick={() => navigate(-1)}><ArrowLeft className="text-slate-400" size={24} /></button>
@@ -206,8 +226,8 @@ export const TransactionHistoryView: React.FC<{ user: User; t: any }> = ({ user,
                 </div>
             </div>
             <div className="p-4 space-y-3">
-                {filtered.map(tx => (
-                    <div key={tx.id} className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-sm flex justify-between items-center">
+                {filtered.map((tx, idx) => (
+                    <div key={tx.id || idx} className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-sm flex justify-between items-center animate-fadeIn">
                         <div>
                             <div className="font-bold text-slate-200 text-sm">{tx.description}</div>
                             <div className="text-xs text-slate-500 mt-1">{new Date(tx.date).toLocaleString()}</div>
@@ -217,7 +237,18 @@ export const TransactionHistoryView: React.FC<{ user: User; t: any }> = ({ user,
                         </div>
                     </div>
                 ))}
-                {filtered.length === 0 && <div className="text-center py-10 text-slate-500">No records</div>}
+
+                {showLoading && <div className="text-center py-4 text-yellow-500">Loading...</div>}
+                {!showLoading && hasMore && (
+                    <button
+                        onClick={() => setSize(size + 1)}
+                        disabled={isLoadingMore}
+                        className="w-full py-4 text-sm font-bold text-slate-400 hover:text-yellow-500 transition-colors uppercase tracking-widest disabled:opacity-50"
+                    >
+                        {isLoadingMore ? 'Loading...' : (t.loadMore || 'Load More')}
+                    </button>
+                )}
+                {!showLoading && filtered.length === 0 && <div className="text-center py-10 text-slate-500">No records</div>}
             </div>
         </div>
     );
@@ -507,8 +538,17 @@ export const TasksView: React.FC<any> = (props) => {
 export const TaskDetailView: React.FC<any> = ({ platforms, onStartTask, t, lang, user }) => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const platform = platforms.find((p: Platform) => p.id === id);
 
+    // Check if we have a cached slim platform, otherwise fetch full
+    const cachedPlatform = platforms.find((p: Platform) => p.id === id);
+    const needsFetch = !cachedPlatform || !cachedPlatform.steps || cachedPlatform.steps.length === 0;
+
+    // Use SWR for on-demand loading of full details
+    const { platform: fetchedPlatform, isLoading } = useTaskDetail(needsFetch ? id : undefined);
+
+    const platform = fetchedPlatform || cachedPlatform;
+
+    if (isLoading && !platform) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-yellow-500">Loading details...</div>;
     if (!platform) return <div className="p-10 text-center text-white">Task Not Found</div>;
 
     return (
@@ -547,7 +587,7 @@ export const TaskDetailView: React.FC<any> = ({ platforms, onStartTask, t, lang,
                         <h3 className="font-bold text-white mb-4 flex items-center gap-2 text-lg"><List size={20} className="text-yellow-500" /> {t.steps}</h3>
                         {/* Steps as Images (Req 5) */}
                         <div className="grid grid-cols-1 gap-4">
-                            {platform.steps.map((step: any, i: number) => (
+                            {(platform.steps || []).map((step: any, i: number) => (
                                 <div key={i} className="relative rounded-xl overflow-hidden group border border-slate-700">
                                     <img src={step.imageUrl || `https://picsum.photos/600/200?random=${i}`} className="w-full h-32 object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
                                     <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 to-transparent flex items-center p-4">
@@ -579,8 +619,17 @@ export const TaskDetailView: React.FC<any> = ({ platforms, onStartTask, t, lang,
 export const ActivityDetailView: React.FC<any> = ({ activities, t }) => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const activity = activities.find((a: Activity) => a.id === id);
 
+    // Check if we have cached slim activity, otherwise fetch full
+    const cachedActivity = activities.find((a: Activity) => a.id === id);
+    const needsFetch = !cachedActivity || !cachedActivity.content;
+
+    // Use SWR for on-demand loading of full content
+    const { activity: fetchedActivity, isLoading } = useActivityDetail(needsFetch ? id : undefined);
+
+    const activity = fetchedActivity || cachedActivity;
+
+    if (isLoading && !activity) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-yellow-500">Loading activity...</div>;
     if (!activity) return <div className="p-10 text-center text-white">Activity Not Found</div>;
 
     return (
@@ -603,13 +652,16 @@ export const ActivityDetailView: React.FC<any> = ({ activities, t }) => {
 
 export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clearUnreadMisi, config }) => {
     const navigate = useNavigate();
-    const tasks = user.myTasks || [];
+
+    // Use SWR hook for smart caching
+    const { tasks, isLoading, hasMore, size, setSize, isLoadingMore, mutate } = useTasks(user.id, 10);
+
     const [filter, setFilter] = useState<'all' | 'ongoing' | 'completed'>('all');
     // 示例图片展开状态 - Persist in localStorage
     const [showExample, setShowExample] = useState(() => {
         try {
             const saved = localStorage.getItem('example_image_expanded');
-            return saved !== 'false'; // Default to true if null or anything else
+            return saved !== 'false';
         } catch (e) {
             return true;
         }
@@ -637,7 +689,6 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
                 fileInputRef.current.click();
             }
         }
-        // If user clicks Cancel (Belum top-up), do nothing
     };
 
     const [isUploading, setIsUploading] = useState(false);
@@ -645,7 +696,6 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file && activeTaskId) {
-            // Check file size (max 5MB)
             if (file.size > 5 * 1024 * 1024) {
                 alert("File size too large (Max 5MB)");
                 return;
@@ -653,27 +703,20 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
 
             try {
                 setIsUploading(true);
-                // Step 1: Upload to Supabase Storage (Wait for this as it's the prerequisite)
                 const publicUrl = await api.uploadProof(file);
-
-                // --- OPTIMISTIC UI: START ---
-                // Step 2: Immediately show success and reset UI
                 alert("Proof uploaded successfully! Kami akan segera meninjau tugas Anda.");
                 setIsUploading(false);
                 const currentTaskId = activeTaskId;
                 setActiveTaskId(null);
                 if (fileInputRef.current) fileInputRef.current.value = '';
 
-                // Step 3: API call to notify backend in background
                 (async () => {
                     try {
                         await onSubmitProof(currentTaskId, publicUrl);
                     } catch (error: any) {
                         console.error("Background proof submission failed:", error);
-                        // Optional: minimal alert if critical
                     }
                 })();
-                // --- OPTIMISTIC UI: END ---
 
             } catch (error: any) {
                 alert("Upload failed: " + error.message);
@@ -682,26 +725,18 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
         }
     };
 
-
     const filtered = tasks.filter((task: UserTask) => {
         if (filter === 'all') return true;
         if (filter === 'completed') return task.status === 'completed';
-        return task.status === 'ongoing' || task.status === 'reviewing';
+        // status ongoing, reviewing or rejected
+        return task.status === 'ongoing' || task.status === 'reviewing' || task.status === 'rejected';
     });
 
-    // 获取示例图片
     const exampleImage = config?.misiExampleImage?.[lang] || config?.misiExampleImage?.['id'];
 
     return (
         <div className="min-h-screen bg-slate-900 pb-24">
-            {/* Hidden File Input */}
-            <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-                accept="image/*"
-            />
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
 
             <div className="bg-slate-900 p-4 sticky top-0 z-10 border-b border-slate-800">
                 <h1 className="font-bold text-lg text-white mb-4">{t.myTasksTitle}</h1>
@@ -716,38 +751,23 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
                 </div>
             </div>
 
-            {/* 示例图片展开/收起按钮 */}
             {exampleImage && (
                 <div className="px-4 pt-4">
-                    <button
-                        onClick={() => {
-                            const newState = !showExample;
-                            setShowExample(newState);
-                            localStorage.setItem('example_image_expanded', String(newState));
-                        }}
-                        className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg hover:from-blue-500 hover:to-blue-400 transition-all mb-3"
-                    >
+                    <button onClick={() => {
+                        const newState = !showExample;
+                        setShowExample(newState);
+                        localStorage.setItem('example_image_expanded', String(newState));
+                    }} className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg mb-3">
                         <ImageIcon size={16} />
                         {showExample ? 'Sembunyikan contoh gambar' : '👇 Wajib Lihat Contoh Sebelum Upload'}
                     </button>
-
-                    {showExample && (
-                        <div className="overflow-hidden animate-fadeIn">
-                            <img
-                                src={exampleImage}
-                                alt="Task Example"
-                                className="w-full rounded-xl shadow-lg border border-slate-700"
-                            />
-                        </div>
-                    )}
+                    {showExample && <div className="overflow-hidden animate-fadeIn"><img src={exampleImage} alt="Task Example" className="w-full rounded-xl shadow-lg border border-slate-700" /></div>}
                 </div>
             )}
 
             <div className="p-4 space-y-4">
-                {filtered.length === 0 && <div className="text-center py-10 text-slate-500">No tasks found</div>}
-                {filtered.map((task: UserTask) => (
-                    // Req 7: Click opens Detail
-                    <div key={task.id} onClick={() => navigate(`/task-detail/${task.platformId}`)} className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg cursor-pointer active:scale-[0.98] transition-transform">
+                {filtered.map((task: UserTask, idx) => (
+                    <div key={task.id || idx} onClick={() => navigate(`/task-detail/${task.platformId}`)} className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg cursor-pointer animate-fadeIn active:scale-[0.98] transition-all">
                         <div className="flex justify-between items-start mb-4">
                             <div className="flex gap-3">
                                 <img src={task.logoUrl} className="w-12 h-12 rounded-lg bg-slate-700 object-contain" />
@@ -772,27 +792,26 @@ export const MyTasksView: React.FC<any> = ({ user, t, onSubmitProof, lang, clear
                             <span className="text-yellow-500 font-bold font-mono">{formatMoney(task.rewardAmount, LANGUAGES[lang].currency)}</span>
                         </div>
 
-                        {/* Req 1: Changed to Upload Screenshot button */}
                         {(task.status === 'ongoing' || task.status === 'rejected') && (
-                            <button onClick={(e) => handleUploadClick(e, task.id)} className={`w-full ${task.status === 'rejected' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-blue-600 hover:bg-blue-500'} text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-lg ${task.status === 'rejected' ? 'shadow-orange-900/20' : 'shadow-blue-900/20'}`}>
+                            <button onClick={(e) => handleUploadClick(e, task.id)} className={`w-full ${task.status === 'rejected' ? 'bg-orange-600' : 'bg-blue-600'} text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-lg`}>
                                 <Upload size={16} /> Unggah Gambar (lihat contoh)
                             </button>
                         )}
                         {task.status === 'rejected' && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    const csLink = config.customerServiceLinks?.['id'] || 'https://t.me/RuangGamer_id';
-                                    window.open(csLink, '_blank');
-                                }}
-                                className="w-full mt-3 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-900/20"
-                            >
-                                <Headset size={16} /> Hubungi Customer Service untuk bantuan
+                            <button onClick={(e) => { e.stopPropagation(); const csLink = config.customerServiceLinks?.['id'] || 'https://t.me/RuangGamer_id'; window.open(csLink, '_blank'); }} className="w-full mt-3 bg-blue-600 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-lg">
+                                <Headset size={16} /> Hubungi CS
                             </button>
                         )}
-                        {/* Rejected reason block removed per user request */}
                     </div>
                 ))}
+
+                {(isLoading && tasks.length === 0) && <div className="text-center py-4 text-yellow-500">Loading...</div>}
+                {!(isLoading && tasks.length === 0) && hasMore && (
+                    <button onClick={() => setSize(size + 1)} disabled={isLoadingMore} className="w-full py-4 text-sm font-bold text-slate-500 hover:text-yellow-500 transition-colors uppercase tracking-widest disabled:opacity-50">
+                        {isLoadingMore ? 'Loading...' : (t.loadMore || 'Load More')}
+                    </button>
+                )}
+                {!(isLoading && tasks.length === 0) && filtered.length === 0 && <div className="text-center py-10 text-slate-500">No tasks found</div>}
             </div>
         </div>
     );
@@ -942,11 +961,15 @@ export const ReferralView: React.FC<any> = ({ user, t, config, lang }) => {
 
 export const MailboxView: React.FC<any> = ({ user, t, markAllRead }) => {
     const navigate = useNavigate();
-    const messages = user.messages || [];
+
+    // Use SWR hook for smart caching
+    const { messages, isLoading, hasMore, size, setSize, isLoadingMore } = useMessages(user.id);
 
     useEffect(() => {
         markAllRead();
     }, []);
+
+    const showLoading = isLoading && messages.length === 0;
 
     return (
         <div className="min-h-screen bg-slate-900 pb-20">
@@ -955,9 +978,8 @@ export const MailboxView: React.FC<any> = ({ user, t, markAllRead }) => {
                 <h1 className="font-bold text-lg text-slate-200">{t.messages}</h1>
             </div>
             <div className="p-4 space-y-3">
-                {messages.length === 0 && <div className="text-center py-10 text-slate-500">No messages</div>}
-                {messages.map((msg: Message) => (
-                    <div key={msg.id} className={`bg-slate-800 p-4 rounded-xl border ${msg.read ? 'border-slate-700' : 'border-yellow-500/50'} shadow-sm`}>
+                {messages.map((msg: Message, idx) => (
+                    <div key={msg.id || idx} className={`bg-slate-800 p-4 rounded-xl border ${msg.read ? 'border-slate-700' : 'border-yellow-500/50'} shadow-sm animate-fadeIn`}>
                         <div className="flex justify-between items-start mb-2">
                             <h4 className={`font-bold ${msg.read ? 'text-slate-300' : 'text-white'}`}>{msg.title}</h4>
                             <span className="text-[10px] text-slate-500">{new Date(msg.date).toLocaleDateString()}</span>
@@ -970,6 +992,14 @@ export const MailboxView: React.FC<any> = ({ user, t, markAllRead }) => {
                         )}
                     </div>
                 ))}
+
+                {showLoading && <div className="text-center py-4 text-yellow-500">Loading...</div>}
+                {!showLoading && hasMore && (
+                    <button onClick={() => setSize(size + 1)} disabled={isLoadingMore} className="w-full py-4 text-sm font-bold text-slate-500 hover:text-yellow-500 transition-colors uppercase tracking-widest disabled:opacity-50">
+                        {isLoadingMore ? 'Loading...' : (t.loadMore || 'Load More')}
+                    </button>
+                )}
+                {!showLoading && messages.length === 0 && <div className="text-center py-10 text-slate-500">No messages</div>}
             </div>
         </div>
     );
@@ -993,6 +1023,7 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
     const [wdAmount, setWdAmount] = useState('');
     const [selectedAccId, setSelectedAccId] = useState('');
     const [minWithdrawal, setMinWithdrawal] = useState<number>(50000);
+    const [latestTx, setLatestTx] = useState<Transaction | null>(null);
 
     useEffect(() => {
         if (location.state?.openTransactions) {
@@ -1001,11 +1032,13 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
             clearUnreadTx();
         }
 
-        // --- Step 1: Fetch Dynamic Config ---
+        // Guard: skip if no user
+        if (!user?.id) return;
+
+        // Fetch Config
         api.getConfig().then(cfg => {
             if (cfg && cfg.minWithdrawAmount) {
                 const val = cfg.minWithdrawAmount;
-                // Handle different potential formats: {"id": X}, {"value": X}, or just X
                 const valNum = typeof val === 'object'
                     ? (val.id !== undefined ? val.id : (val.value !== undefined ? val.value : 50000))
                     : (Number(val) || 50000);
@@ -1013,9 +1046,16 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
             }
         }).catch(err => {
             console.error("Failed to fetch min withdrawal config:", err);
-            setMinWithdrawal(50000); // Fallback
+            setMinWithdrawal(50000);
         });
-    }, [location.state]);
+
+        // Fetch latest transaction for the sidebar/record view
+        api.getUserTransactions(user.id, 1, 1).then(res => {
+            if (res.transactions && res.transactions.length > 0) {
+                setLatestTx(res.transactions[0]);
+            }
+        }).catch(err => console.error(err));
+    }, [location.state, user?.id]);
 
     const handleBindPhoneSubmit = () => {
         if (phoneInput.length < 8) return alert("Invalid phone number");
@@ -1080,10 +1120,6 @@ export const ProfileView: React.FC<any> = ({ user, t, logout, lang, onBindCard, 
         }
     }
 
-    // Latest Record (Req 5)
-    const latestTx = user.transactions && user.transactions.length > 0
-        ? user.transactions[0]
-        : null;
 
     return (
         <div className="min-h-screen bg-slate-900 pb-24 font-sans text-slate-200">

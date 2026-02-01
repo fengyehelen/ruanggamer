@@ -12,26 +12,30 @@ from schemas import SystemConfig, Activity, InitialDataResponse
 router = APIRouter(tags=["配置"])
 
 
-def convert_db_activity(a: dict) -> dict:
+def convert_db_activity(a: dict, slim: bool = False) -> dict:
     """将数据库活动数据转换为 API 响应格式"""
-    return {
+    res = {
         "id": a["id"],
         "title": a["title"],
         "titleColor": a.get("title_color"),
         "imageUrl": a["image_url"],
-        "content": a["content"],
-        "link": a["link"],
         "active": a.get("active", True),
-        "isPinned": a.get("is_pinned", False),
-        "showPopup": a.get("show_popup", False),
-        "targetCountries": a.get("target_countries") or ["id"]
+        "showPopup": a.get("show_popup", False)
     }
+    if not slim:
+        res.update({
+            "content": a["content"],
+            "link": a["link"],
+            "isPinned": a.get("is_pinned", False),
+            "targetCountries": a.get("target_countries") or ["id"]
+        })
+    return res
 
 
 @router.get("/config", response_model=SystemConfig, response_model_by_alias=True)
 async def get_config(db: Client = Depends(get_db)):
     """
-    获取系统配置
+    获取系统配置 (精简版，不含大数据块)
     """
     result = db.table("system_config").select("*").execute()
     
@@ -39,10 +43,10 @@ async def get_config(db: Client = Depends(get_db)):
         "initialBalance": {},
         "minWithdrawAmount": {},
         "telegramLinks": {},
-        "customerServiceLinks": {},
+        "customer_service_links": {},
         "hypeLevel": 5,
-        "helpContent": "",
-        "aboutContent": "",
+        "helpContent": "[SLIM] Fetch via /config/help",
+        "aboutContent": "[SLIM] Fetch via /config/about",
         "vipConfig": {},
         "misiExampleImage": {},
         "welcomeMessage": ""
@@ -55,7 +59,6 @@ async def get_config(db: Client = Depends(get_db)):
         if key == "initial_balance":
             config["initialBalance"] = value
         elif key in ["min_withdraw_amount", "min_withdrawal"]:
-            # 如果两个都有，优先使用 min_withdrawal
             if key == "min_withdrawal" or "minWithdrawAmount" not in config or not config["minWithdrawAmount"]:
                 config["minWithdrawAmount"] = value
         elif key == "telegram_links":
@@ -64,46 +67,86 @@ async def get_config(db: Client = Depends(get_db)):
             config["customerServiceLinks"] = value
         elif key == "hype_level":
             config["hypeLevel"] = int(value) if isinstance(value, (int, str)) else 5
-        elif key == "help_content":
-            config["helpContent"] = value if isinstance(value, str) else str(value).strip('"')
-        elif key == "about_content":
-            config["aboutContent"] = value if isinstance(value, str) else str(value).strip('"')
         elif key == "vip_config":
             config["vipConfig"] = value
         elif key == "misi_example_image":
+            # misiExampleImage 可能也大，但后端返回 URL 的话就没问题。
+            # 这里先原样返回，如果包含 Base64，管理员应替换为 URL。
             config["misiExampleImage"] = value
         elif key == "welcome_message":
             config["welcomeMessage"] = value if isinstance(value, str) else str(value).strip('"')
+        # Skip help_content and about_content in list mode
     
     return config
 
 
+@router.get("/config/{key}", response_model=dict)
+async def get_config_item(key: str, db: Client = Depends(get_db)):
+    """获取单个配置项 (用于拉取大数据块如 help_content)"""
+    # 映射前端 key 为数据库 key
+    key_map = {
+        "helpContent": "help_content",
+        "aboutContent": "about_content",
+        "misiExampleImage": "misi_example_image"
+    }
+    db_key = key_map.get(key, key)
+    result = db.table("system_config").select("value").eq("key", db_key).execute()
+    if not result.data:
+        return {"key": key, "value": ""}
+    return {"key": key, "value": result.data[0]["value"]}
+
+
 @router.get("/activities", response_model=list[Activity], response_model_by_alias=True)
 async def get_activities(db: Client = Depends(get_db)):
-    """
-    获取所有活动列表
-    """
+    """获取所有活动列表 (完整版)"""
     result = db.table("activities").select("*").eq("active", True).execute()
-    
     return [convert_db_activity(a) for a in (result.data or [])]
+
+
+@router.get("/activities/{activity_id}", response_model=Activity, response_model_by_alias=True)
+async def get_activity_detail(activity_id: str, db: Client = Depends(get_db)):
+    """获取活动详情"""
+    result = db.table("activities").select("*").eq("id", activity_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    return convert_db_activity(result.data[0])
 
 
 @router.get("/initial-data", response_model=InitialDataResponse, response_model_by_alias=True)
 async def get_initial_data(db: Client = Depends(get_db)):
     """
-    获取初始数据（平台和活动）
-    用于前端首次加载
+    获取初始数据 (精简版)
     """
-    # 导入任务路由的转换函数
     from .tasks import convert_db_platform
     
-    # 获取平台
-    platforms_result = db.table("platforms").select("*").eq("status", "online").order("is_pinned", desc=True).order("created_at", desc=True).execute()
-    platforms = [convert_db_platform(p) for p in (platforms_result.data or [])]
+    # 获取平台 (精简版)
+    platforms_result = db.table("platforms").select("id, name, name_color, logo_url, description, desc_color, download_link, first_deposit_amount, reward_amount, is_hot, is_pinned, remaining_qty, total_qty, likes, status, type").eq("status", "online").order("is_pinned", desc=True).order("created_at", desc=True).execute()
     
-    # 获取活动
-    activities_result = db.table("activities").select("*").eq("active", True).execute()
-    activities = [convert_db_activity(a) for a in (activities_result.data or [])]
+    # 模拟 convert_db_platform 但不包含 steps 和 rules
+    platforms = []
+    for p in (platforms_result.data or []):
+        platforms.append({
+            "id": p["id"],
+            "name": p["name"],
+            "nameColor": p.get("name_color"),
+            "logoUrl": p["logo_url"],
+            "description": p["description"],
+            "descColor": p.get("desc_color"),
+            "downloadLink": p["download_link"],
+            "firstDepositAmount": float(p["first_deposit_amount"]),
+            "rewardAmount": float(p["reward_amount"]),
+            "isHot": p.get("is_hot", False),
+            "isPinned": p.get("is_pinned", False),
+            "remainingQty": p.get("remaining_qty", 0),
+            "totalQty": p.get("total_qty", 0),
+            "likes": p.get("likes", 0),
+            "status": p.get("status", "online"),
+            "type": p.get("type", "deposit")
+        })
+    
+    # 获取活动 (精简版)
+    activities_result = db.table("activities").select("id, title, title_color, image_url, active, show_popup").eq("active", True).execute()
+    activities = [convert_db_activity(a, slim=True) for a in (activities_result.data or [])]
     
     return {
         "platforms": platforms,

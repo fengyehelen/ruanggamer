@@ -9,7 +9,8 @@ from datetime import datetime
 
 from database import get_db
 from schemas import (
-    UserResponse, BankAccountCreate, BindPhoneRequest, WithdrawRequest
+    UserResponse, BankAccountCreate, BindPhoneRequest, WithdrawRequest,
+    UserTransactionResponse, UserTaskResponse, PaginatedMessagesResponse
 )
 from routers.auth import convert_db_user_to_response
 
@@ -86,6 +87,65 @@ async def mark_messages_as_read(user_id: str, db: Client = Depends(get_db)):
     db.table("messages").update({"read": True}).eq("user_id", user_id).eq("read", False).execute()
     return {"message": "All messages marked as read"}
 
+
+@router.get("/{user_id}/transactions", response_model=UserTransactionResponse, response_model_by_alias=True)
+async def get_user_transactions(user_id: str, page: int = 1, per_page: int = 20, db: Client = Depends(get_db)):
+    """获取用户交易记录 (分页)"""
+    start = (page - 1) * per_page
+    end = start + per_page - 1
+    result = db.table("transactions").select("*").eq("user_id", user_id).order("date", desc=True).range(start, end).execute()
+    count_res = db.table("transactions").select("id", count="exact").eq("user_id", user_id).execute()
+    total = count_res.count if hasattr(count_res, 'count') else 0
+    return {"transactions": result.data, "total": total, "page": page, "perPage": per_page}
+
+@router.get("/{user_id}/tasks", response_model=UserTaskResponse, response_model_by_alias=True)
+async def get_user_tasks(user_id: str, page: int = 1, per_page: int = 20, db: Client = Depends(get_db)):
+    """获取用户任务记录 (分页)"""
+    start = (page - 1) * per_page
+    end = start + per_page - 1
+    result = db.table("user_tasks").select("*").eq("user_id", user_id).order("start_time", desc=True).range(start, end).execute()
+    count_res = db.table("user_tasks").select("id", count="exact").eq("user_id", user_id).execute()
+    total = count_res.count if hasattr(count_res, 'count') else 0
+    
+    tasks = [
+        {
+            "id": t["id"],
+            "platformId": t["platform_id"],
+            "platformName": t["platform_name"],
+            "logoUrl": t["logo_url"],
+            "rewardAmount": float(t["reward_amount"]),
+            "status": t["status"],
+            "startTime": t["start_time"],
+            "submissionTime": t.get("submission_time"),
+            "proofImageUrl": t.get("proof_image_url"),
+            "rejectReason": t.get("reject_reason")
+        }
+        for t in (result.data or [])
+    ]
+    return {"tasks": tasks, "total": total, "page": page, "perPage": per_page}
+
+@router.get("/{user_id}/messages", response_model=PaginatedMessagesResponse, response_model_by_alias=True)
+async def get_user_messages(user_id: str, page: int = 1, per_page: int = 20, db: Client = Depends(get_db)):
+    """获取用户消息 (分页)"""
+    start = (page - 1) * per_page
+    end = start + per_page - 1
+    result = db.table("messages").select("*").eq("user_id", user_id).order("date", desc=True).range(start, end).execute()
+    count_res = db.table("messages").select("id", count="exact").eq("user_id", user_id).execute()
+    total = count_res.count if hasattr(count_res, 'count') else 0
+    
+    messages = [
+        {
+            "id": m["id"],
+            "userId": m["user_id"],
+            "title": m["title"],
+            "content": m["content"],
+            "date": m["date"],
+            "read": m["read"],
+            "rewardAmount": m.get("reward_amount")
+        }
+        for m in (result.data or [])
+    ]
+    return {"messages": messages, "total": total}
 
 @router.post("/{user_id}/withdraw", response_model=UserResponse, response_model_by_alias=True)
 async def withdraw(user_id: str, request: WithdrawRequest, db: Client = Depends(get_db)):

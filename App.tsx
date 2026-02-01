@@ -91,10 +91,7 @@ const App: React.FC = () => {
                 if (u) {
                     setUser(u);
                     checkUnread(u);
-                    // If admin, load all users
-                    if (u.role === 'admin') {
-                        api.getAllUsers().then(data => setAllUsers(data.users));
-                    }
+                    // If admin, no need to load all users here anymore (AdminApp handles pagination)
                 }
             });
         }
@@ -186,10 +183,7 @@ const App: React.FC = () => {
                 checkUnread(data.user);
                 localStorage.setItem('ruanggamer_session', data.user.id);
 
-                // If admin, load all users
-                if (data.user.role === 'admin') {
-                    api.getAllUsers().then(res => setAllUsers(res.users));
-                }
+                // If admin, no need to load all users here anymore (AdminApp handles pagination)
                 return null;
             }
 
@@ -236,10 +230,7 @@ const App: React.FC = () => {
                 // Set unread mission red dot
                 setHasUnreadMisi(true);
 
-                // Refresh users if admin
-                if (user?.role === 'admin') {
-                    api.getAllUsers().then(res => setAllUsers(res.users));
-                }
+                // No need to refresh global allUsers on task start - AdminApp handles its own list
             } catch (e: any) {
                 const errorMsg = e.message || '';
                 // Only alert on real errors (not "already started")
@@ -462,8 +453,7 @@ const App: React.FC = () => {
                         updateTaskStatus={async (userId, taskId, status) => {
                             try {
                                 await api.auditTask(userId, taskId, status);
-                                const res = await api.getAllUsers();
-                                setAllUsers(res.users);
+                                // AdminApp handles its own list refresh internally
                             } catch (e: any) { alert("Audit Failed: " + e.message); }
                         }}
                         updateUserPassword={async (userId, newPass) => {
@@ -476,8 +466,7 @@ const App: React.FC = () => {
                             try {
                                 await api.sendMessage(userId, title, content, amount);
                                 alert("Message Sent");
-                                const res = await api.getAllUsers();
-                                setAllUsers(res.users);
+                                // AdminApp handles its own list refresh internally
                             } catch (e: any) { alert("Send failed: " + e.message); }
                         }}
                         addAdmin={async (username, pass, role) => {
@@ -618,8 +607,8 @@ const App: React.FC = () => {
                             onBindPhone={handleBindPhone}
                         />
                     } />
-                    <Route path="/help" element={<StaticPageView title="Bantuan" content={config.helpContent || "Hubungi Admin via Telegram jika ada kendala."} />} />
-                    <Route path="/about" element={<StaticPageView title="Tentang Kami" content={config.aboutContent || "RuangGamer adalah platform gaming reward nomor 1 di Indonesia."} />} />
+                    <Route path="/help" element={<StaticPageView title="Bantuan" content={config.helpContent || ""} configKey="helpContent" />} />
+                    <Route path="/about" element={<StaticPageView title="Tentang Kami" content={config.aboutContent || ""} configKey="aboutContent" />} />
 
                     {/* Protected Routes (Redirect to Login if null) */}
                     <Route path="/my-tasks" element={user ? <MyTasksView user={user} t={TRANSLATIONS[lang]} onSubmitProof={handleSubmitProof} lang={lang} clearUnreadMisi={handleClearUnreadMisi} config={config} /> : <Navigate to="/login" />} />

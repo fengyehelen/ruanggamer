@@ -120,6 +120,15 @@ async def get_tasks(db: Client = Depends(get_db)):
     return [convert_db_platform(p) for p in (result.data or [])]
 
 
+@router.get("/{platform_id}", response_model=Platform, response_model_by_alias=True)
+async def get_task_detail(platform_id: str, db: Client = Depends(get_db)):
+    """获取平台/任务详情 (包含 steps 和 rules)"""
+    result = db.table("platforms").select("*").eq("id", platform_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Platform not found")
+    return convert_db_platform(result.data[0])
+
+
 @router.post("/{platform_id}/start", response_model=UserTask, response_model_by_alias=True)
 async def start_task(platform_id: str, user_id: str, db: Client = Depends(get_db)):
     """

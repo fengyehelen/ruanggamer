@@ -27,12 +27,12 @@ def generate_referral_code(length: int = 6) -> str:
 
 def convert_db_user_to_response(user_data: dict, db: Client) -> UserResponse:
     """
-    将数据库用户数据转换为 API 响应格式
-    需要额外查询关联表数据
+    将数据库用户数据转换为 API 响应格式 (Slim 模式)
+    不再默认返回全量历史记录，仅返回计数
     """
     user_id = user_data["id"]
     
-    # 获取用户的银行账户
+    # 获取用户的银行账户 (核心数据，保留)
     bank_accounts_result = db.table("bank_accounts").select("*").eq("user_id", user_id).execute()
     bank_accounts = [
         {
@@ -45,51 +45,17 @@ def convert_db_user_to_response(user_data: dict, db: Client) -> UserResponse:
         for ba in (bank_accounts_result.data or [])
     ]
     
-    # 获取用户的任务
-    tasks_result = db.table("user_tasks").select("*").eq("user_id", user_id).execute()
-    my_tasks = [
-        {
-            "id": t["id"],
-            "platformId": t["platform_id"],
-            "platformName": t["platform_name"],
-            "logoUrl": t["logo_url"],
-            "rewardAmount": float(t["reward_amount"]),
-            "status": t["status"],
-            "startTime": t["start_time"],
-            "submissionTime": t.get("submission_time"),
-            "proofImageUrl": t.get("proof_image_url"),
-            "rejectReason": t.get("reject_reason")
-        }
-        for t in (tasks_result.data or [])
-    ]
+    # 计数替代全量列表
+    unread_msg_res = db.table("messages").select("id", count="exact").eq("user_id", user_id).eq("read", False).execute()
+    unread_msg_count = unread_msg_res.count if hasattr(unread_msg_res, 'count') else 0
     
-    # 获取用户的交易记录
-    transactions_result = db.table("transactions").select("*").eq("user_id", user_id).order("date", desc=True).execute()
-    transactions = [
-        {
-            "id": tx["id"],
-            "type": tx["type"],
-            "amount": float(tx["amount"]),
-            "date": tx["date"],
-            "description": tx["description"],
-            "status": tx["status"]
-        }
-        for tx in (transactions_result.data or [])
-    ]
+    # 交易记录计数 (用于前端红点提醒)
+    tx_count_res = db.table("transactions").select("id", count="exact").eq("user_id", user_id).execute()
+    tx_total = tx_count_res.count if hasattr(tx_count_res, 'count') else 0
     
-    # 获取用户的消息
-    messages_result = db.table("messages").select("*").eq("user_id", user_id).order("date", desc=True).execute()
-    messages = [
-        {
-            "id": m["id"],
-            "title": m["title"],
-            "content": m["content"],
-            "date": m["date"],
-            "read": m["read"],
-            "rewardAmount": m.get("reward_amount")
-        }
-        for m in (messages_result.data or [])
-    ]
+    # 进行中的任务计数
+    ongoing_tasks_res = db.table("user_tasks").select("id", count="exact").eq("user_id", user_id).eq("status", "ongoing").execute()
+    ongoing_count = ongoing_tasks_res.count if hasattr(ongoing_tasks_res, 'count') else 0
     
     return UserResponse(
         id=user_data["id"],
@@ -102,13 +68,16 @@ def convert_db_user_to_response(user_data: dict, db: Client) -> UserResponse:
         referralCode=user_data["referral_code"],
         referrerId=user_data.get("referrer_id"),
         invitedCount=user_data["invited_count"],
-        myTasks=my_tasks,
+        myTasks=[], # Slim mode: empty
         likedTaskIds=user_data.get("liked_task_ids") or [],
         registrationDate=user_data["registration_date"],
         bankAccounts=bank_accounts,
         role=user_data["role"],
-        messages=messages,
-        transactions=transactions,
+        messages=[], # Slim mode: empty
+        transactions=[], # Slim mode: empty
+        unreadMsgCount=unread_msg_count,
+        unreadTxCount=tx_total,
+        ongoingTaskCount=ongoing_count,
         theme=user_data.get("theme", "gold"),
         isBanned=user_data.get("is_banned", False)
     )

@@ -106,6 +106,15 @@ export const api = {
     /**
      * 获取初始数据（平台和活动）
      */
+    async getTaskDetail(id: string): Promise<Platform> {
+        return request<Platform>(`/tasks/${id}`);
+    },
+    async getActivityDetail(id: string): Promise<Activity> {
+        return request<Activity>(`/activities/${id}`);
+    },
+    async getConfigItem(key: string): Promise<{ key: string, value: any }> {
+        return request<{ key: string, value: any }>(`/config/${key}`);
+    },
     async getInitialData(): Promise<{ platforms: Platform[], activities: Activity[] }> {
         console.log('Fetching initial data from:', `${API_BASE}/initial-data`);
         return request<{ platforms: Platform[], activities: Activity[] }>('/initial-data');
@@ -333,6 +342,82 @@ export const api = {
         });
         if (search) params.append('search', search);
         return request<{ messages: any[], total: number }>(`/admin/messages?${params.toString()}`);
+    },
+
+    /**
+     * 获取指定用户的交易流水 (分页)
+     */
+    async getUserTransactions(userId: string, page: number, pageSize: number): Promise<{ transactions: any[], total: number }> {
+        return request<{ transactions: any[], total: number }>(`/users/${userId}/transactions?page=${page}&per_page=${pageSize}`);
+    },
+
+    /**
+     * 获取指定用户的任务记录 (分页)
+     */
+    async getUserTasks(userId: string, page: number, pageSize: number): Promise<{ tasks: any[], total: number }> {
+        return request<{ tasks: any[], total: number }>(`/users/${userId}/tasks?page=${page}&per_page=${pageSize}`);
+    },
+
+    /**
+     * 获取指定用户的消息列表 (分页)
+     */
+    async getUserMessages(userId: string, page: number, pageSize: number): Promise<{ messages: any[], total: number }> {
+        return request<{ messages: any[], total: number }>(`/users/${userId}/messages?page=${page}&per_page=${pageSize}`);
+    },
+
+    /**
+     * 管理员获取指定用户的交易流水
+     */
+    async getAdminUserTransactions(userId: string, page: number, pageSize: number): Promise<{ transactions: any[], total: number }> {
+        return request<{ transactions: any[], total: number }>(`/admin/users/${userId}/transactions?page=${page}&per_page=${pageSize}`);
+    },
+
+    /**
+     * 获取仪表盘统计数据 (服务端聚合)
+     */
+    async getDashboardStats(): Promise<{
+        totalUsers: number;
+        totalBalance: number;
+        pendingWithdrawals: number;
+        pendingTasks: number;
+        todayRegistrations: number;
+    }> {
+        return request('/admin/dashboard-stats');
+    },
+
+    /**
+     * 获取分页用户列表 (精简数据)
+     */
+    async getPaginatedUsers(page: number, perPage: number, search?: string): Promise<{
+        users: any[];
+        total: number;
+        page: number;
+        perPage: number;
+    }> {
+        const params = new URLSearchParams({ page: page.toString(), per_page: perPage.toString() });
+        if (search) params.append('search', search);
+        return request(`/admin/users?${params.toString()}`);
+    },
+
+    /**
+     * 获取待审核任务列表
+     */
+    async getPendingTasks(): Promise<{ tasks: any[]; total: number }> {
+        return request('/admin/pending-tasks');
+    },
+
+    /**
+     * 获取提现记录列表
+     */
+    async getPendingWithdrawals(): Promise<{ withdrawals: any[]; total: number }> {
+        return request('/admin/pending-withdrawals');
+    },
+
+    /**
+     * 获取已审核任务历史记录
+     */
+    async getAuditHistory(): Promise<{ tasks: any[]; total: number }> {
+        return request('/admin/audit-history');
     }
 
 };
