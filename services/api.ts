@@ -416,8 +416,8 @@ export const api = {
     /**
      * 获取已审核任务历史记录
      */
-    async getAuditHistory(): Promise<{ tasks: any[]; total: number }> {
-        return request('/admin/audit-history');
+    async getAuditHistory(page: number = 1, perPage: number = 20): Promise<{ tasks: any[]; total: number }> {
+        return request(`/admin/audit-history?page=${page}&per_page=${perPage}`);
     }
 
 };

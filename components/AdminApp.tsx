@@ -123,6 +123,9 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     // Pending Tasks and Withdrawals (from dedicated APIs)
     const [pendingTasksList, setPendingTasksList] = useState<any[]>([]);
     const [auditHistoryList, setAuditHistoryList] = useState<any[]>([]);
+    const [auditHistoryPage, setAuditHistoryPage] = useState(1);
+    const [auditHistoryTotal, setAuditHistoryTotal] = useState(0);
+    const auditHistoryPerPage = 20;
     const [withdrawalsList, setWithdrawalsList] = useState<any[]>([]);
 
     // --- FORM STATES ---
@@ -209,10 +212,12 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     };
 
     // Fetch audit history
-    const fetchAuditHistory = async () => {
+    const fetchAuditHistory = async (page: number = 1) => {
         try {
-            const res = await api.getAuditHistory();
+            const res = await api.getAuditHistory(page, auditHistoryPerPage);
             setAuditHistoryList(res.tasks || []);
+            setAuditHistoryTotal(res.total || 0);
+            setAuditHistoryPage(page);
         } catch (e) {
             console.error('Failed to load audit history', e);
         }
@@ -294,6 +299,13 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
             localStorage.setItem('ruanggamer_admin_view', view);
         }
     }, [view, session]);
+
+    // Fetch audit history when page changes
+    useEffect(() => {
+        if (view === 'audit') {
+            fetchAuditHistory(auditHistoryPage);
+        }
+    }, [view, auditHistoryPage]);
 
     // --- REALTIME SUBSCRIPTION (Admin Global) ---
     const adminRealtimeConfig = React.useMemo(() => [
@@ -585,7 +597,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                 await refreshDashboardStats();
                 await fetchPaginatedUsers(usersPage, userSearch);
                 await fetchPendingTasks();
-                await fetchAuditHistory();
+                await fetchAuditHistory(auditHistoryPage);
             } catch (e: any) {
                 console.error("Background task audit failed:", e);
                 alert("Audit failed, rolling back: " + e.message);
@@ -1080,6 +1092,31 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                     )}
                                 </tbody>
                             </table>
+
+                            {/* Audit History Pagination Controls */}
+                            {auditTab === 'history' && (
+                                <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                                    <div className="text-xs text-slate-500">
+                                        Page {auditHistoryPage} of {Math.ceil(auditHistoryTotal / auditHistoryPerPage) || 1} (Total: {auditHistoryTotal})
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setAuditHistoryPage(prev => Math.max(1, prev - 1))}
+                                            disabled={auditHistoryPage <= 1}
+                                            className={`px-3 py-1 rounded border text-xs font-bold transition-all ${auditHistoryPage <= 1 ? 'text-slate-300 border-slate-200' : 'text-slate-600 border-slate-300 hover:bg-white active:scale-95'}`}
+                                        >
+                                            Previous
+                                        </button>
+                                        <button
+                                            onClick={() => setAuditHistoryPage(prev => prev + 1)}
+                                            disabled={auditHistoryPage * auditHistoryPerPage >= auditHistoryTotal}
+                                            className={`px-3 py-1 rounded border text-xs font-bold transition-all ${auditHistoryPage * auditHistoryPerPage >= auditHistoryTotal ? 'text-slate-300 border-slate-200' : 'text-slate-600 border-slate-300 hover:bg-white active:scale-95'}`}
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

@@ -274,15 +274,27 @@ async def get_pending_tasks(db: Client = Depends(get_db)):
 
 
 @router.get("/audit-history")
-async def get_audit_history(db: Client = Depends(get_db)):
+async def get_audit_history(
+    page: int = 1, 
+    per_page: int = 20,
+    db: Client = Depends(get_db)
+):
     """
     获取已审核任务列表 (status='completed' or 'rejected')
-    返回包含用户信息的任务列表
+    支持翻页
     """
-    # Get completed/rejected tasks with user info
+    # Calculate offset
+    start = (page - 1) * per_page
+    end = start + per_page - 1
+
+    # Get total count
+    count_res = db.table("user_tasks").select("id", count="exact").in_("status", ["completed", "rejected"]).execute()
+    total = count_res.count or 0
+
+    # Get tasks with user info
     tasks_res = db.table("user_tasks").select(
         "*, users(id, email, phone, referral_code)"
-    ).in_("status", ["completed", "rejected"]).order("updated_at", desc=True).limit(100).execute()
+    ).in_("status", ["completed", "rejected"]).order("updated_at", desc=True).range(start, end).execute()
     
     # Transform to include user info directly
     tasks = []
