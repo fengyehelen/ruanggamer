@@ -316,6 +316,16 @@ export const api = {
         });
     },
 
+    /**
+     * 管理员修改自己的密码
+     */
+    async changeAdminPassword(adminId: string, oldPass: string, newPass: string): Promise<void> {
+        return request<void>('/admin/password', {
+            method: 'PATCH',
+            body: JSON.stringify({ adminId, oldPassword: oldPass, newPassword: newPass })
+        });
+    },
+
     async getAdminMessages(page: number, pageSize: number, search?: string): Promise<{ messages: any[], total: number }> {
         const params = new URLSearchParams({
             page: page.toString(),

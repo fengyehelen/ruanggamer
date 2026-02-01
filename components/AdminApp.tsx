@@ -74,7 +74,7 @@ const SimpleLineChart: React.FC<{ data: number[], color: string }> = ({ data, co
 const AdminApp: React.FC<AdminAppProps> = (props) => {
 
     const [session, setSession] = useState<Admin | null>(null);
-    const [view, setView] = useState<'dashboard' | 'audit' | 'withdrawals' | 'users' | 'tasks' | 'activities' | 'admins' | 'config' | 'messages'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'audit' | 'withdrawals' | 'users' | 'tasks' | 'activities' | 'admins' | 'config' | 'messages' | 'profile'>('dashboard');
     const [auditTab, setAuditTab] = useState<'queue' | 'history'>('queue');
     const [hasApiKey, setHasApiKey] = useState(false);
     const [imageModalUrl, setImageModalUrl] = useState<string | null>(null);
@@ -460,6 +460,65 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         } finally { setIsGenerating(false); }
     };
 
+    // --- OPTIMISTIC UI ACTIONS ---
+    const handleOptimisticAuditTask = async (userId: string, taskId: string, status: 'completed' | 'rejected') => {
+        // 1. Snapshot previous state for rollback
+        const prevUsers = [...localUsers];
+
+        // 2. Update state immediately
+        const updatedUsers = localUsers.map(u => {
+            if (u.id !== userId) return u;
+            return {
+                ...u,
+                myTasks: (u.myTasks || []).map(t => t.id === taskId ? { ...t, status } : t)
+            };
+        });
+        setLocalUsers(updatedUsers);
+
+        // 3. Execute API in background
+        (async () => {
+            try {
+                await api.auditTask(userId, taskId, status);
+                // Final sync to ensure everything (balance, etc) is correct
+                const res = await api.getAllUsers();
+                if (res.users) setLocalUsers(res.users);
+            } catch (e: any) {
+                console.error("Background task audit failed:", e);
+                alert("Audit failed, rolling back: " + e.message);
+                setLocalUsers(prevUsers);
+            }
+        })();
+    };
+
+    const handleOptimisticAuditWithdrawal = async (txId: string, status: 'success' | 'failed') => {
+        // 1. Snapshot
+        const prevUsers = [...localUsers];
+
+        // 2. Update immediately
+        const updatedUsers = localUsers.map(u => {
+            const hasTx = (u.transactions || []).some(tx => tx.id === txId);
+            if (!hasTx) return u;
+            return {
+                ...u,
+                transactions: (u.transactions || []).map(tx => tx.id === txId ? { ...tx, status } : tx)
+            };
+        });
+        setLocalUsers(updatedUsers);
+
+        // 3. Background call
+        (async () => {
+            try {
+                await api.auditWithdrawal(txId, status);
+                const res = await api.getAllUsers();
+                if (res.users) setLocalUsers(res.users);
+            } catch (e: any) {
+                console.error("Background withdrawal audit failed:", e);
+                alert("Withdrawal audit failed, rolling back: " + e.message);
+                setLocalUsers(prevUsers);
+            }
+        })();
+    };
+
     if (!session) return <AdminLogin onLogin={handleLogin} />;
 
     const users = localUsers;
@@ -531,6 +590,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                     {session.role === 'super_admin' && (
                         <button onClick={() => setView('admins')} className={`w-full text-left px-4 py-3 rounded-lg flex items-center space-x-3 ${view === 'admins' ? 'bg-indigo-600' : 'text-slate-400 hover:bg-slate-800'}`}><Key size={18} /> <span>Admins</span></button>
                     )}
+                    <button onClick={() => setView('profile')} className={`w-full text-left px-4 py-3 rounded-lg flex items-center space-x-3 ${view === 'profile' ? 'bg-indigo-600' : 'text-slate-400 hover:bg-slate-800'}`}><Shield size={18} /> <span>Profile</span></button>
                 </nav>
                 <div className="p-4 border-t border-slate-800">
                     {!hasApiKey && <button onClick={handleConnectAI} className="w-full bg-slate-800 text-yellow-400 text-xs py-2 rounded border border-slate-700 mb-2"><Zap size={12} className="inline mr-1" /> Connect AI</button>}
@@ -577,6 +637,61 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                 {[40, 60, 30, 80, 50, 90, 70].map((h, i) => <div key={i} className="flex-1 bg-orange-200 rounded-t" style={{ height: `${h}%` }}></div>)}
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {view === 'profile' && (
+                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 max-w-xl">
+                        <div className="flex items-center gap-4 mb-8">
+                            <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center font-bold text-2xl">
+                                {session.username[0].toUpperCase()}
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-800">{session.username}</h3>
+                                <p className="text-sm text-slate-500 uppercase font-bold tracking-wider">{session.role}</p>
+                            </div>
+                        </div>
+
+                        <hr className="mb-8 border-slate-100" />
+
+                        <h4 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                            <Lock size={18} className="text-indigo-500" /> Change Password
+                        </h4>
+
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            const formData = new FormData(e.currentTarget);
+                            const oldPass = formData.get('oldPass') as string;
+                            const newPass = formData.get('newPass') as string;
+                            const confirmPass = formData.get('confirmPass') as string;
+
+                            if (newPass !== confirmPass) return alert("New passwords do not match!");
+                            if (newPass.length < 6) return alert("Password must be at least 6 characters!");
+
+                            try {
+                                await api.changeAdminPassword(session.id, oldPass, newPass);
+                                alert("Password updated successfully! Please log in again.");
+                                handleLogout();
+                            } catch (e: any) {
+                                alert("Failed to update password: " + e.message);
+                            }
+                        }} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Current Password</label>
+                                <input name="oldPass" type="password" required className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">New Password</label>
+                                <input name="newPass" type="password" required className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Confirm New Password</label>
+                                <input name="confirmPass" type="password" required className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
+                            </div>
+                            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-lg shadow-indigo-100 transition-all active:scale-[0.98]">
+                                Update Password
+                            </button>
+                        </form>
                     </div>
                 )}
 
@@ -773,18 +888,14 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                                             ) : 'No Image'}
                                                         </td>
                                                         <td className="p-4 flex gap-2">
-                                                            <button onClick={async () => {
+                                                            <button onClick={() => {
                                                                 if (user) {
-                                                                    await api.auditTask(user.id, task.id, 'completed');
-                                                                    const res = await api.getAllUsers();
-                                                                    setLocalUsers(res.users);
+                                                                    handleOptimisticAuditTask(user.id, task.id, 'completed');
                                                                 }
                                                             }} className="bg-green-100 text-green-700 px-3 py-1 rounded font-bold hover:bg-green-200">Approve</button>
-                                                            <button onClick={async () => {
+                                                            <button onClick={() => {
                                                                 if (user) {
-                                                                    await api.auditTask(user.id, task.id, 'rejected');
-                                                                    const res = await api.getAllUsers();
-                                                                    setLocalUsers(res.users);
+                                                                    handleOptimisticAuditTask(user.id, task.id, 'rejected');
                                                                 }
                                                             }} className="bg-red-100 text-red-700 px-3 py-1 rounded font-bold hover:bg-red-200">Reject</button>
                                                         </td>
@@ -851,20 +962,14 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                         <td className="p-4 flex gap-2">
                                             {tx.status === 'pending' && (
                                                 <>
-                                                    <button onClick={async () => {
+                                                    <button onClick={() => {
                                                         if (confirm('Approve withdrawal?')) {
-                                                            await api.auditWithdrawal(tx.id, 'success');
-                                                            // Refresh users to get latest transactions
-                                                            const res = await api.getAllUsers();
-                                                            setLocalUsers(res.users);
+                                                            handleOptimisticAuditWithdrawal(tx.id, 'success');
                                                         }
                                                     }} className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs hover:bg-green-200">Approve</button>
-                                                    <button onClick={async () => {
+                                                    <button onClick={() => {
                                                         if (confirm('Reject withdrawal?')) {
-                                                            await api.auditWithdrawal(tx.id, 'failed');
-                                                            // Refresh users
-                                                            const res = await api.getAllUsers();
-                                                            setLocalUsers(res.users);
+                                                            handleOptimisticAuditWithdrawal(tx.id, 'failed');
                                                         }
                                                     }} className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs hover:bg-red-200">Reject</button>
                                                 </>

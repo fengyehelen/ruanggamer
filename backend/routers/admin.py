@@ -24,6 +24,13 @@ class AdminLoginRequest(BaseModel):
     password: str
 
 
+class AdminChangePasswordRequest(BaseModel):
+    """管理员修改密码请求"""
+    adminId: str
+    oldPassword: str
+    newPassword: str
+
+
 class AdminResponse(BaseModel):
     """管理员响应模型"""
     id: str
@@ -290,6 +297,30 @@ async def reset_user_password(user_id: str, req: ResetPasswordRequest, db: Clien
     hashed = get_password_hash(req.newPassword)
     db.table("users").update({"password": hashed}).eq("id", user_id).execute()
     return {"message": "Password updated"}
+
+
+@router.patch("/password")
+async def change_admin_password(req: AdminChangePasswordRequest, db: Client = Depends(get_db)):
+    """管理员修改自己的密码"""
+    # 查找管理员
+    result = db.table("admins").select("*").eq("id", req.adminId).execute()
+    
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    
+    admin = result.data[0]
+    
+    # 验证旧密码
+    if not verify_password(req.oldPassword, admin["password"]):
+        raise HTTPException(status_code=400, detail="Invalid old password")
+    
+    # 哈希新密码
+    hashed_password = get_password_hash(req.newPassword)
+    
+    # 执行更新
+    db.table("admins").update({"password": hashed_password}).eq("id", req.adminId).execute()
+    
+    return {"message": "Password updated successfully"}
 
 
 class AuditWithdrawalRequest(BaseModel):
