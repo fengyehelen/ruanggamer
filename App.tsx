@@ -15,6 +15,7 @@ import InstallAppButton from './components/InstallAppButton';
 import ReactPixel from 'react-facebook-pixel';
 import { useLocation } from 'react-router-dom';
 import FloatingCS from './components/FloatingCS';
+import { Analytics } from '@vercel/analytics/react';
 
 // Sub-component to handle route tracking within Router context
 const PixelTracker: React.FC = () => {
@@ -414,7 +415,7 @@ const App: React.FC = () => {
                 const reason = payload.new.rejection_reason || payload.new.reject_reason || 'Tidak diketahui';
                 alert(`Tugas "${payload.new.platform_name}" ditolak. Alasan: ${reason}. Silakan hubungi Customer Service untuk bantuan.`);
 
-                // 点击OK后自动打开客服链接
+                // 点击OK后自动打开客服���接
                 const csLink = config.customerServiceLinks['id'];
                 if (csLink) {
                     window.open(csLink, '_blank');
@@ -630,6 +631,7 @@ const App: React.FC = () => {
                     <Route path="/transactions" element={user ? <TransactionHistoryView user={user} t={TRANSLATIONS[lang]} /> : <Navigate to="/login" />} />
                 </Route>
             </Routes>
+            <Analytics />
         </Router>
     );
 };
