@@ -7,8 +7,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from supabase import Client
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, date, timedelta, timezone
+from typing import Optional, List, Dict
 
 from database import get_db
 from utils import verify_password, get_password_hash # Integrated security utils
@@ -147,28 +147,22 @@ class DashboardStats(BaseModel):
 async def get_dashboard_stats(db: Client = Depends(get_db)):
     """
     获取仪表盘统计数据 (服务端聚合)
-    使用 SQL COUNT/SUM 直接计算，返回 < 1KB
     """
-    from datetime import date, timedelta
-    today = date.today().isoformat()
+    today = datetime.now(timezone(timedelta(hours=7))).date().isoformat()
     
-    # Total users count
+    # 使用 simpler queries for basic stats
     users_res = db.table("users").select("id", count="exact").execute()
     total_users = users_res.count if hasattr(users_res, 'count') and users_res.count else 0
     
-    # Sum of all user balances
     balance_res = db.table("users").select("balance").execute()
     total_balance = sum(u.get("balance", 0) for u in (balance_res.data or []))
     
-    # Pending withdrawals count
     pending_wd_res = db.table("transactions").select("id", count="exact").eq("type", "withdraw").eq("status", "pending").execute()
     pending_withdrawals = pending_wd_res.count if hasattr(pending_wd_res, 'count') and pending_wd_res.count else 0
     
-    # Pending tasks count
     pending_tasks_res = db.table("user_tasks").select("id", count="exact").eq("status", "reviewing").execute()
     pending_tasks = pending_tasks_res.count if hasattr(pending_tasks_res, 'count') and pending_tasks_res.count else 0
     
-    # Today registrations
     today_reg_res = db.table("users").select("id", count="exact").gte("created_at", today).execute()
     today_registrations = today_reg_res.count if hasattr(today_reg_res, 'count') and today_reg_res.count else 0
     
@@ -179,6 +173,104 @@ async def get_dashboard_stats(db: Client = Depends(get_db)):
         pendingTasks=pending_tasks,
         todayRegistrations=today_registrations
     )
+
+
+@router.get("/analytics")
+async def get_analytics(db: Client = Depends(get_db)):
+    """
+    获取详细分析数据 (当日指标 + 30天趋势)
+    时区: UTC+7
+    """
+    tz_plus_7 = timezone(timedelta(hours=7))
+    now = datetime.now(tz_plus_7)
+    today_date = now.date()
+    start_date = today_date - timedelta(days=29) # 包含今天在内的前30天
+    
+    # 转换为 UTC ISO 格式用于查询
+    start_iso = datetime.combine(start_date, datetime.min.time(), tzinfo=tz_plus_7).astimezone(timezone.utc).isoformat()
+    today_iso = datetime.combine(today_date, datetime.min.time(), tzinfo=tz_plus_7).astimezone(timezone.utc).isoformat()
+
+    # 1. 获取所有相关数据 (近30天)
+    # 注册数据
+    users = db.table("users").select("created_at").gte("created_at", start_iso).execute()
+    # 领取任务量 (ongoing + reviewed)
+    claimed = db.table("user_tasks").select("start_time").gte("start_time", start_iso).execute()
+    # 完成任务量
+    completed = db.table("user_tasks").select("submission_time").eq("status", "completed").gte("submission_time", start_iso).execute()
+    # 提款总额 (status='success')
+    withdrawals = db.table("transactions").select("amount, created_at").eq("type", "withdraw").eq("status", "success").gte("created_at", start_iso).execute()
+
+    # 2. 初始化趋势数据字典
+    trends = {}
+    for i in range(30):
+        d = (start_date + timedelta(days=i)).isoformat()
+        trends[d] = {
+            "date": d,
+            "registrations": 0,
+            "tasksClaimed": 0,
+            "tasksCompleted": 0,
+            "withdrawAmount": 0
+        }
+
+    # 3. 填充数据并计算当日 Summary
+    summary = {
+        "registrations": 0,
+        "tasksClaimed": 0,
+        "tasksCompleted": 0,
+        "withdrawAmount": 0
+    }
+
+    # 辅助函数: 转换 UTC 时间戳到 UTC+7 日期字符串
+    def to_7_date(iso_str):
+        if not iso_str: return None
+        # 处理可能没有时区信息的字符串
+        if iso_str.endswith('Z'): iso_str = iso_str[:-1] + '+00:00'
+        try:
+            dt = datetime.fromisoformat(iso_str).astimezone(tz_plus_7)
+            return dt.date().isoformat()
+        except:
+            return None
+
+    # 计算注册量
+    for u in (users.data or []):
+        day = to_7_date(u.get("created_at"))
+        if day in trends:
+            trends[day]["registrations"] += 1
+            if day == today_date.isoformat():
+                summary["registrations"] += 1
+
+    # 计算领取任务量
+    for t in (claimed.data or []):
+        day = to_7_date(t.get("start_time"))
+        if day in trends:
+            trends[day]["tasksClaimed"] += 1
+            if day == today_date.isoformat():
+                summary["tasksClaimed"] += 1
+
+    # 计算完成任务量
+    for t in (completed.data or []):
+        day = to_7_date(t.get("submission_time"))
+        if day in trends:
+            trends[day]["tasksCompleted"] += 1
+            if day == today_date.isoformat():
+                summary["tasksCompleted"] += 1
+
+    # 计算提款金额
+    for w in (withdrawals.data or []):
+        day = to_7_date(w.get("created_at"))
+        amount = abs(float(w.get("amount", 0)))
+        if day in trends:
+            trends[day]["withdrawAmount"] += amount
+            if day == today_date.isoformat():
+                summary["withdrawAmount"] += amount
+
+    # 4. 转换趋势数据为列表并排序
+    chart_data = sorted(trends.values(), key=lambda x: x["date"])
+
+    return {
+        "summary": summary,
+        "chartData": chart_data
+    }
 
 
 class PaginatedUsersResponse(BaseModel):
@@ -210,8 +302,8 @@ async def get_all_users(
     )
     
     if search:
-        # Search by email, phone, or referral code
-        query = query.or_(f"email.ilike.%{search}%,phone.ilike.%{search}%,referral_code.ilike.%{search}%")
+        # Search by id, email, phone, or referral code
+        query = query.or_(f"id.ilike.%{search}%,email.ilike.%{search}%,phone.ilike.%{search}%,referral_code.ilike.%{search}%")
     
     res = query.order("created_at", desc=True).range(start, end).execute()
     total = res.count if hasattr(res, 'count') and res.count else 0

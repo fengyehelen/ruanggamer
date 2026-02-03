@@ -418,6 +418,13 @@ export const api = {
      */
     async getAuditHistory(page: number = 1, perPage: number = 20): Promise<{ tasks: any[]; total: number }> {
         return request(`/admin/audit-history?page=${page}&per_page=${perPage}`);
+    },
+
+    /**
+     * 获取详细分析数据 (当日指标 + 30天趋势)
+     */
+    async getAnalytics(): Promise<any> {
+        return request('/admin/analytics');
     }
 
 };

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useSupabaseRealtime } from '../hooks/useSupabaseRealtime';
 import NotificationSoundPlayer from './NotificationSoundPlayer';
+import DashboardAnalytics from './DashboardAnalytics';
 
 interface AdminAppProps {
     users: User[];
@@ -57,18 +58,6 @@ const AdminLogin: React.FC<{ onLogin: (u: string, p: string) => void }> = ({ onL
     );
 };
 
-// --- DASHBOARD CHART ---
-const SimpleLineChart: React.FC<{ data: number[], color: string }> = ({ data, color }) => {
-    const max = Math.max(...data, 1);
-    const points = data.map((val, i) => `${(i / (data.length - 1)) * 100},${100 - (val / max) * 100}`).join(' ');
-    return (
-        <div className="h-16 w-full relative overflow-hidden">
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-                <polyline fill="none" stroke={color} strokeWidth="2" points={points} />
-            </svg>
-        </div>
-    );
-};
 
 // --- MAIN ADMIN ---
 const AdminApp: React.FC<AdminAppProps> = (props) => {
@@ -707,7 +696,8 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         return (
             u.id?.toLowerCase().includes(search) ||
             u.phone?.toLowerCase().includes(search) ||
-            u.email?.toLowerCase().includes(search)
+            u.email?.toLowerCase().includes(search) ||
+            u.referralCode?.toLowerCase().includes(search)
         );
     });
 
@@ -786,25 +776,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                 <NotificationSoundPlayer enabled={soundEnabled} />
 
                 {view === 'dashboard' && (
-                    <div className="grid grid-cols-3 gap-6">
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-2">Total Players</h3>
-                            <p className="text-3xl font-bold text-indigo-600">{totalUsers}</p>
-                            <div className="mt-4"><SimpleLineChart data={chartData} color="#4f46e5" /></div>
-                        </div>
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-2">Total Withdraw (IDR)</h3>
-                            <p className="text-3xl font-bold text-green-600">Rp {totalWithdrawals.toLocaleString()}</p>
-                            <div className="mt-4"><SimpleLineChart data={payoutData} color="#16a34a" /></div>
-                        </div>
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-2">Commission Paid</h3>
-                            <p className="text-3xl font-bold text-orange-500">Rp {totalCommissions.toLocaleString()}</p>
-                            <div className="mt-4 h-16 flex items-end gap-1">
-                                {[40, 60, 30, 80, 50, 90, 70].map((h, i) => <div key={i} className="flex-1 bg-orange-200 rounded-t" style={{ height: `${h}%` }}></div>)}
-                            </div>
-                        </div>
-                    </div>
+                    <DashboardAnalytics />
                 )}
 
                 {view === 'profile' && (
@@ -1241,7 +1213,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                 <input
                                     type="text"
                                     value={userSearch}
-                                    onChange={e => setUserSearch(e.target.value)}
+                                    onChange={e => { setUserSearch(e.target.value); setUsersPage(1); }}
                                     placeholder="Search by Email / UID / Phone..."
                                     className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
                                 />
