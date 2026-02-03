@@ -731,34 +731,43 @@ async def get_paginated_messages(
 @router.post("/audit-withdrawal")
 async def audit_withdrawal(req: AuditWithdrawalRequest, db: Client = Depends(get_db)):
     """审核提现 (批准/拒绝)"""
-    # 1. 获取交易
+    # 1. 获取交易并检查状态
     tx_res = db.table("transactions").select("*").eq("id", req.transactionId).execute()
     if not tx_res.data:
         raise HTTPException(status_code=404, detail="Transaction not found")
     
     tx = tx_res.data[0]
     
-    # 2. 更新交易状态
+    # 重要：防止重复通过或拒绝 (幂等性判断)
+    if tx["status"] != "pending":
+        return {"message": f"Transaction already processed as {tx['status']}"}
+    
+    # 2. 更新原交易状态
     db.table("transactions").update({
         "status": req.status
     }).eq("id", req.transactionId).execute()
     
-    # 3. 如果拒绝 (failed)，需要退还余额
+    # 3. 如果拒绝 (failed)，需要退还余额并记录一笔正向账变
     if req.status == 'failed':
         user_res = db.table("users").select("balance").eq("id", tx["user_id"]).execute()
         if user_res.data:
             current_balance = float(user_res.data[0]["balance"])
-            refund_amount = abs(float(tx["amount"])) # 提现amount通常是负数或正数，取决于存储方式。假设存储为负数或逻辑处理。
+            refund_amount = abs(float(tx["amount"])) # 提现金额的原值
             
-            # Check logic: usually withdraw reduces balance immediately. 
-            # If rejected, add it back.
-            # In schemas.py or logic, withdraw deduces balance? 
-            # Let's assume positive refund.
-            
+            # 退款到余额
             new_balance = current_balance + refund_amount
             db.table("users").update({"balance": new_balance}).eq("id", tx["user_id"]).execute()
             
-    return {"message": "Withdrawal audited"}
+            # 创建一条新的「退款」交易记录，让用户能看到 +XXXX 的流水
+            db.table("transactions").insert({
+                "user_id": tx["user_id"],
+                "type": "withdraw_refund",
+                "amount": refund_amount,
+                "description": f"Refund: Withdraw Rejected ({req.transactionId})",
+                "status": "success"
+            }).execute()
+            
+    return {"message": "Withdrawal audited successfully"}
 
 
 

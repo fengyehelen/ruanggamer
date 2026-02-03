@@ -120,6 +120,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     const [withdrawalsPage, setWithdrawalsPage] = useState(1);
     const [withdrawalsTotal, setWithdrawalsTotal] = useState(0);
     const withdrawalsPerPage = 20;
+    const [processingWds, setProcessingWds] = useState<Set<string>>(new Set());
 
     // --- FORM STATES ---
     const [actTitle, setActTitle] = useState('');
@@ -657,6 +658,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
             };
         });
         setLocalUsers(updatedUsers);
+        setProcessingWds(prev => new Set(prev).add(txId));
 
         // 3. Background call
         (async () => {
@@ -670,6 +672,12 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                 console.error("Background withdrawal audit failed:", e);
                 alert("Withdrawal audit failed, rolling back: " + e.message);
                 setLocalUsers(prevUsers);
+            } finally {
+                setProcessingWds(prev => {
+                    const next = new Set(prev);
+                    next.delete(txId);
+                    return next;
+                });
             }
         })();
     };
@@ -1177,16 +1185,28 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                         <td className="p-4 flex gap-2">
                                             {tx.status === 'pending' && (
                                                 <>
-                                                    <button onClick={() => {
-                                                        if (confirm('Approve withdrawal?')) {
-                                                            handleOptimisticAuditWithdrawal(tx.id, 'success');
-                                                        }
-                                                    }} className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs hover:bg-green-200">Approve</button>
-                                                    <button onClick={() => {
-                                                        if (confirm('Reject withdrawal?')) {
-                                                            handleOptimisticAuditWithdrawal(tx.id, 'failed');
-                                                        }
-                                                    }} className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs hover:bg-red-200">Reject</button>
+                                                    <button
+                                                        disabled={processingWds.has(tx.id)}
+                                                        onClick={() => {
+                                                            if (confirm('Approve withdrawal?')) {
+                                                                handleOptimisticAuditWithdrawal(tx.id, 'success');
+                                                            }
+                                                        }}
+                                                        className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs hover:bg-green-200 disabled:opacity-50"
+                                                    >
+                                                        {processingWds.has(tx.id) ? 'Processing...' : 'Approve'}
+                                                    </button>
+                                                    <button
+                                                        disabled={processingWds.has(tx.id)}
+                                                        onClick={() => {
+                                                            if (confirm('Reject withdrawal?')) {
+                                                                handleOptimisticAuditWithdrawal(tx.id, 'failed');
+                                                            }
+                                                        }}
+                                                        className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs hover:bg-red-200 disabled:opacity-50"
+                                                    >
+                                                        {processingWds.has(tx.id) ? 'Processing...' : 'Reject'}
+                                                    </button>
                                                 </>
                                             )}
                                         </td>

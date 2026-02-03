@@ -195,7 +195,7 @@ async def register(user_data: UserCreate, db: Client = Depends(get_db)):
             "user_id": user_id,
             "type": "system_bonus",
             "amount": initial_balance,
-            "description": "Welcome Bonus",
+            "description": "Registration Bonus",
             "status": "success",
             "date": datetime.now().isoformat()
         }).execute()
