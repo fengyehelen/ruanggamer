@@ -293,8 +293,12 @@ async def get_all_users(
     page: int = 1,
     per_page: int = 20,
     search: Optional[str] = None,
+    limit: Optional[int] = None, # 兼容 limit 参数
     db: Client = Depends(get_db)
 ):
+    # 如果传了 limit，优先使用
+    if limit:
+        per_page = limit
     """
     获取用户列表（分页，精简数据）
     不返回嵌套的 transactions/tasks/messages

@@ -298,6 +298,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     // Fetch paginated users with debounce for search
     useEffect(() => {
         if (view === 'users') {
+            setIsLoadingUsers(true); // 立即显示加载状态，避免看到旧数据的瞬间过滤感
             const timer = setTimeout(() => {
                 fetchPaginatedUsers(usersPage, userSearch);
             }, 300);
@@ -738,19 +739,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     const auditHistory = auditHistoryList;
     const withdrawals = withdrawalsList;
 
-    // 先过滤再排序
-    const filteredUsers = users.filter(u => {
-        if (!userSearch.trim()) return true;
-        const search = userSearch.toLowerCase().trim();
-        return (
-            u.id?.toLowerCase().includes(search) ||
-            u.phone?.toLowerCase().includes(search) ||
-            u.email?.toLowerCase().includes(search) ||
-            u.referralCode?.toLowerCase().includes(search)
-        );
-    });
-
-    const sortedUsers = [...filteredUsers].sort((a, b) => {
+    const sortedUsers = [...users].sort((a, b) => {
         if (userSort === 'bal') return b.balance - a.balance;
         if (userSort === 'earnings') return b.totalEarnings - a.totalEarnings;
         return new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime();
@@ -1306,48 +1295,60 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {sortedUsers.length === 0 && <tr><td colSpan={7} className="p-12 text-center text-slate-400">No users found</td></tr>}
-                                {sortedUsers.map(u => (
-                                    <tr key={u.id} className={`hover:bg-slate-50 ${u.isBanned ? 'bg-red-50' : ''}`}>
-                                        <td className="p-4">
-                                            <div className="font-bold text-slate-900">{u.phone}</div>
-                                            <div className="text-[10px] text-slate-400">ID: {u.id}</div>
-                                            {u.isBanned && <span className="text-[10px] text-red-600 font-bold uppercase">BANNED</span>}
-                                        </td>
-                                        <td className="p-4 text-sm text-slate-600">{u.email || <span className="text-slate-400">-</span>}</td>
-                                        <td className="p-4 font-mono font-bold text-green-600">{u.currency} {u.balance}</td>
-                                        <td className="p-4 text-xs max-w-xs break-words">
-                                            {(u.bankAccounts || []).map((b, i) => (
-                                                <div key={i} className="mb-1 p-1 bg-slate-100 rounded border border-slate-200">
-                                                    <div className="font-bold">{b.bankName}</div>
-                                                    <div>{b.accountNumber} ({b.accountName})</div>
-                                                </div>
-                                            ))}
-                                            {(!u.bankAccounts || u.bankAccounts.length === 0) && <span className="text-slate-400">-</span>}
-                                        </td>
-                                        <td className="p-4 text-xs text-slate-500">{u.registrationDate ? new Date(u.registrationDate).toLocaleDateString() + ' ' + new Date(u.registrationDate).toLocaleTimeString() : '-'}</td>
-                                        <td className="p-4 font-mono font-bold text-indigo-600">{u.currency} {u.totalEarnings}</td>
-                                        <td className="p-4 flex gap-2">
-                                            <button onClick={() => {
-                                                setAdjustBalanceUserId(u.id);
-                                                setAdjustAmount('0');
-                                                setAdjustDesc('Admin Credit');
-                                            }} className="text-xs border border-green-300 bg-green-50 text-green-600 px-2 py-1 rounded hover:bg-green-100 flex items-center gap-1"><DollarSign size={10} /> Adjust</button>
-                                            <button onClick={() => openHistory(u)} className="text-xs border border-indigo-300 bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1"><List size={10} /> History</button>
-                                            <button onClick={() => handleResetUserPassword(u.id)} className="text-xs border border-slate-300 px-2 py-1 rounded hover:bg-slate-100 flex items-center gap-1"><Lock size={10} /> Reset</button>
-                                            <button onClick={async () => {
-                                                try {
-                                                    await api.banUser(u.id, !u.isBanned);
-                                                    // Refresh current page
-                                                    await fetchPaginatedUsers(usersPage, userSearch);
-                                                } catch (e: any) { alert("Action failed: " + e.message); }
-                                            }} className={`text-xs border px-2 py-1 rounded flex items-center gap-1 ${u.isBanned ? 'border-green-300 bg-green-50 text-green-600' : 'border-red-300 bg-red-50 text-red-600'}`}>
-                                                <Ban size={10} /> {u.isBanned ? 'Unban' : 'Ban'}
-                                            </button>
-
+                                {isLoadingUsers ? (
+                                    <tr>
+                                        <td colSpan={7} className="p-12 text-center">
+                                            <div className="flex flex-col items-center gap-2 text-indigo-600">
+                                                <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                                                <span className="text-xs font-bold uppercase tracking-widest">Searching Users...</span>
+                                            </div>
                                         </td>
                                     </tr>
-                                ))}
+                                ) : sortedUsers.length === 0 ? (
+                                    <tr><td colSpan={7} className="p-12 text-center text-slate-400">No users found</td></tr>
+                                ) : (
+                                    sortedUsers.map(u => (
+                                        <tr key={u.id} className={`hover:bg-slate-50 ${u.isBanned ? 'bg-red-50' : ''}`}>
+                                            <td className="p-4">
+                                                <div className="font-bold text-slate-900">{u.phone}</div>
+                                                <div className="text-[10px] text-slate-400">ID: {u.id}</div>
+                                                {u.isBanned && <span className="text-[10px] text-red-600 font-bold uppercase">BANNED</span>}
+                                            </td>
+                                            <td className="p-4 text-sm text-slate-600">{u.email || <span className="text-slate-400">-</span>}</td>
+                                            <td className="p-4 font-mono font-bold text-green-600">{u.currency} {u.balance}</td>
+                                            <td className="p-4 text-xs max-w-xs break-words">
+                                                {(u.bankAccounts || []).map((b, i) => (
+                                                    <div key={i} className="mb-1 p-1 bg-slate-100 rounded border border-slate-200">
+                                                        <div className="font-bold">{b.bankName}</div>
+                                                        <div>{b.accountNumber} ({b.accountName})</div>
+                                                    </div>
+                                                ))}
+                                                {(!u.bankAccounts || u.bankAccounts.length === 0) && <span className="text-slate-400">-</span>}
+                                            </td>
+                                            <td className="p-4 text-xs text-slate-500">{u.registrationDate ? new Date(u.registrationDate).toLocaleDateString() + ' ' + new Date(u.registrationDate).toLocaleTimeString() : '-'}</td>
+                                            <td className="p-4 font-mono font-bold text-indigo-600">{u.currency} {u.totalEarnings}</td>
+                                            <td className="p-4 flex gap-2">
+                                                <button onClick={() => {
+                                                    setAdjustBalanceUserId(u.id);
+                                                    setAdjustAmount('0');
+                                                    setAdjustDesc('Admin Credit');
+                                                }} className="text-xs border border-green-300 bg-green-50 text-green-600 px-2 py-1 rounded hover:bg-green-100 flex items-center gap-1"><DollarSign size={10} /> Adjust</button>
+                                                <button onClick={() => openHistory(u)} className="text-xs border border-indigo-300 bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1"><List size={10} /> History</button>
+                                                <button onClick={() => handleResetUserPassword(u.id)} className="text-xs border border-slate-300 px-2 py-1 rounded hover:bg-slate-100 flex items-center gap-1"><Lock size={10} /> Reset</button>
+                                                <button onClick={async () => {
+                                                    try {
+                                                        await api.banUser(u.id, !u.isBanned);
+                                                        // Refresh current page
+                                                        await fetchPaginatedUsers(usersPage, userSearch);
+                                                    } catch (e: any) { alert("Action failed: " + e.message); }
+                                                }} className={`text-xs border px-2 py-1 rounded flex items-center gap-1 ${u.isBanned ? 'border-green-300 bg-green-50 text-green-600' : 'border-red-300 bg-red-50 text-red-600'}`}>
+                                                    <Ban size={10} /> {u.isBanned ? 'Unban' : 'Ban'}
+                                                </button>
+
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
 
