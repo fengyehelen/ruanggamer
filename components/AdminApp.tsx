@@ -106,9 +106,9 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     const [userSearch, setUserSearch] = useState(''); // 用户搜索关键词（邮箱/UID/手机号）
 
     // Reset page when search changes
-    useEffect(() => {
-        setUsersPage(1);
-    }, [userSearch]);
+    // useEffect(() => {
+    //     setUsersPage(1);
+    // }, [userSearch]);
 
     // Pending Tasks and Withdrawals (from dedicated APIs)
     const [pendingTasksList, setPendingTasksList] = useState<any[]>([]);
@@ -298,7 +298,6 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     // Fetch paginated users with debounce for search
     useEffect(() => {
         if (view === 'users') {
-            setIsLoadingUsers(true); // 立即显示加载状态，避免看到旧数据的瞬间过滤感
             const timer = setTimeout(() => {
                 fetchPaginatedUsers(usersPage, userSearch);
             }, 300);
