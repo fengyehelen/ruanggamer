@@ -326,6 +326,16 @@ export const api = {
     },
 
     /**
+     * 人工调整用户余额
+     */
+    async adjustUserBalance(userId: string, amount: number, description: string): Promise<{ newBalance: number }> {
+        return request<{ newBalance: number }>(`/admin/users/${userId}/adjust-balance`, {
+            method: 'POST',
+            body: JSON.stringify({ amount, description })
+        });
+    },
+
+    /**
      * 管理员修改自己的密码
      */
     async changeAdminPassword(adminId: string, oldPass: string, newPass: string): Promise<void> {

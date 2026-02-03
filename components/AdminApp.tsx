@@ -7,7 +7,7 @@ import { api } from '../services/api';
 import {
     Shield, CheckCircle, User as UserIcon, List, Image, Key, LogOut, ArrowLeft,
     LayoutDashboard, Sparkles, Wand2, Zap, Lock, Settings, Mail, Send, Trash2, Power, Plus, X, Save, BarChart3, Pin, Ban, Crown, Wallet,
-    Eye, Info, Volume2, VolumeX
+    Eye, Info, Volume2, VolumeX, DollarSign
 } from 'lucide-react';
 import { useSupabaseRealtime } from '../hooks/useSupabaseRealtime';
 import NotificationSoundPlayer from './NotificationSoundPlayer';
@@ -147,6 +147,10 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
     ]);
     const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
     const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
+    const [adjustBalanceUserId, setAdjustBalanceUserId] = useState<string | null>(null);
+    const [adjustAmount, setAdjustAmount] = useState<string>('0');
+    const [adjustDesc, setAdjustDesc] = useState<string>('Manual Adjustment');
+    const [isAdjusting, setIsAdjusting] = useState(false);
 
 
     // Admin Config State
@@ -680,6 +684,27 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                 });
             }
         })();
+    };
+
+    const handleAdjustBalance = async () => {
+        if (!adjustBalanceUserId || isAdjusting) return;
+        const amount = parseFloat(adjustAmount);
+        if (isNaN(amount)) return alert("Invalid amount");
+
+        setIsAdjusting(true);
+        try {
+            await api.adjustUserBalance(adjustBalanceUserId, amount, adjustDesc);
+            alert("Balance adjusted successfully!");
+            setAdjustBalanceUserId(null);
+            setAdjustAmount('0');
+            setAdjustDesc('Manual Adjustment');
+            await fetchPaginatedUsers(usersPage, userSearch);
+            await refreshDashboardStats();
+        } catch (e: any) {
+            alert("Adjustment failed: " + e.message);
+        } finally {
+            setIsAdjusting(false);
+        }
     };
 
     const fetchUserHistory = async (userId: string, page: number) => {
@@ -1303,6 +1328,11 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                         <td className="p-4 text-xs text-slate-500">{u.registrationDate ? new Date(u.registrationDate).toLocaleDateString() + ' ' + new Date(u.registrationDate).toLocaleTimeString() : '-'}</td>
                                         <td className="p-4 font-mono font-bold text-indigo-600">{u.currency} {u.totalEarnings}</td>
                                         <td className="p-4 flex gap-2">
+                                            <button onClick={() => {
+                                                setAdjustBalanceUserId(u.id);
+                                                setAdjustAmount('0');
+                                                setAdjustDesc('Admin Credit');
+                                            }} className="text-xs border border-green-300 bg-green-50 text-green-600 px-2 py-1 rounded hover:bg-green-100 flex items-center gap-1"><DollarSign size={10} /> Adjust</button>
                                             <button onClick={() => openHistory(u)} className="text-xs border border-indigo-300 bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1"><List size={10} /> History</button>
                                             <button onClick={() => handleResetUserPassword(u.id)} className="text-xs border border-slate-300 px-2 py-1 rounded hover:bg-slate-100 flex items-center gap-1"><Lock size={10} /> Reset</button>
                                             <button onClick={async () => {
@@ -1741,6 +1771,59 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* --- ADJUST BALANCE MODAL --- */}
+            {adjustBalanceUserId && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setAdjustBalanceUserId(null)}></div>
+                    <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 animate-entry">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold text-slate-800">Adjust Balance</h3>
+                            <button onClick={() => setAdjustBalanceUserId(null)} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Adjustment Amount</label>
+                                <p className="text-[10px] text-slate-400 mb-2">(Positive to add, negative to deduct)</p>
+                                <input
+                                    type="number"
+                                    value={adjustAmount}
+                                    onChange={e => setAdjustAmount(e.target.value)}
+                                    className="w-full border border-slate-200 rounded-xl p-3 font-mono text-lg focus:outline-none focus:border-indigo-400"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Description / Reason</label>
+                                <textarea
+                                    value={adjustDesc}
+                                    onChange={e => setAdjustDesc(e.target.value)}
+                                    rows={3}
+                                    className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-400"
+                                    placeholder="e.g., Event reward, Correction..."
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    onClick={() => setAdjustBalanceUserId(null)}
+                                    className="flex-1 py-3 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleAdjustBalance}
+                                    disabled={isAdjusting}
+                                    className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    {isAdjusting ? 'Processing...' : <><Save size={18} /> Confirm</>}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

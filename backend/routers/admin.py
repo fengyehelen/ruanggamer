@@ -37,6 +37,12 @@ class AdminResponse(BaseModel):
     id: str
     username: str
     role: str
+
+
+class AdjustBalanceRequest(BaseModel):
+    """人工调整余额请求"""
+    amount: float # 调整金额，正数为加，负数为减
+    description: str # 调整说明
     # NOTE: 不返回密码给前端
 
 
@@ -591,6 +597,35 @@ async def send_message(req: SendMessageRequest, db: Client = Depends(get_db)):
                 }).execute()
                  
     return {"message": f"Message sent to {len(recipient_ids)} users"}
+
+
+@router.post("/users/{user_id}/adjust-balance")
+async def adjust_user_balance(user_id: str, req: AdjustBalanceRequest, db: Client = Depends(get_db)):
+    """人工调整用户余额"""
+    # 1. 查找用户
+    user_res = db.table("users").select("balance, total_earnings").eq("id", user_id).execute()
+    if not user_res.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user = user_res.data[0]
+    old_balance = float(user["balance"])
+    new_balance = old_balance + req.amount
+    
+    # 2. 更新余额
+    db.table("users").update({
+        "balance": new_balance
+    }).eq("id", user_id).execute()
+    
+    # 3. 记录交易流水
+    db.table("transactions").insert({
+        "user_id": user_id,
+        "type": "manual_adjustment",
+        "amount": req.amount,
+        "description": req.description or "Manual Adjustment",
+        "status": "success"
+    }).execute()
+    
+    return {"message": "Balance adjusted successfully", "newBalance": new_balance}
 
 
 @router.patch("/users/{user_id}/ban")
