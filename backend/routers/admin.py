@@ -13,6 +13,7 @@ from typing import Optional, List, Dict
 from database import get_db
 from utils import verify_password, get_password_hash # Integrated security utils
 from schemas import UserResponse
+from .fb_tracker import send_fb_event
 
 
 router = APIRouter(prefix="/admin", tags=["管理员"])
@@ -482,6 +483,28 @@ async def audit_task(req: AuditTaskRequest, db: Client = Depends(get_db)):
                     "description": "Task Reward",
                     "status": "success"
                 }).execute()
+
+                # --- Meta Pixel/CAPI: Purchase Event ---
+                try:
+                    import asyncio
+                    # Fetch task name for tracking
+                    task_info = db.table("user_tasks").select("platform_name").eq("id", req.taskId).execute()
+                    task_name = task_info.data[0].get("platform_name", "Task Reward") if task_info.data else "Task Reward"
+                    
+                    # Background task to not block API response
+                    asyncio.create_task(send_fb_event(
+                        event_name="Purchase",
+                        user_email=user.get("email"),
+                        user_id=req.userId,
+                        value=float(amount),
+                        currency="IDR",
+                        event_id=req.taskId, # MUST match frontend event_id
+                        content_ids=[req.taskId],
+                        content_name=task_name
+                    ))
+                except Exception as fb_err:
+                    import logging
+                    logging.getLogger(__name__).error(f"Failed to trigger FB CAPI: {fb_err}")
 
                 # --- NEW: 3-Level Referral Commission ---
                 referrer_id = user.get("referrer_id")
