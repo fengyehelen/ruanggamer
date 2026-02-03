@@ -488,7 +488,7 @@ export const HomeView: React.FC<any> = ({ platforms, t, setSort, sort, lang, act
                                     {/* Progress Bar (Req 3) */}
                                     <div className="mb-3">
                                         <div className="flex justify-between text-[10px] text-slate-300 mb-1">
-                                            <span>Claimed: {claimed}/{p.totalQty}</span>
+                                            <span>{t.claimed}: {claimed}/{p.totalQty}</span>
                                         </div>
                                         <div className="w-full h-1.5 bg-slate-700/50 rounded-full overflow-hidden border border-white/10">
                                             <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${percent}%` }}></div>
@@ -575,8 +575,8 @@ export const TaskDetailView: React.FC<any> = ({ platforms, onStartTask, t, lang,
                         <div className="text-xl font-bold text-white font-mono">{formatMoney(platform.rewardAmount, LANGUAGES[lang].currency)}</div>
                     </div>
                     <div className="flex-1 bg-slate-800 p-4 rounded-xl border border-slate-700">
-                        <div className="text-xs text-slate-500 font-bold uppercase mb-1 tracking-wider">{t.remaining}</div>
-                        <div className="text-xl font-bold text-slate-200 font-mono">{platform.remainingQty}/{platform.totalQty}</div>
+                        <div className="text-xs text-yellow-500 font-bold uppercase mb-1 tracking-wider">{t.claimed}</div>
+                        <div className="text-xl font-bold text-slate-200 font-mono">{(platform.totalQty - platform.remainingQty)}/{platform.totalQty}</div>
                     </div>
                 </div>
 
@@ -642,9 +642,10 @@ export const ActivityDetailView: React.FC<any> = ({ activities, t }) => {
             </div>
             <div className="p-6">
                 <h1 className="text-2xl font-bold text-white mb-4">{activity.title}</h1>
-                <div className="prose prose-invert prose-sm text-slate-400">
-                    {activity.content}
-                </div>
+                <div
+                    className="prose prose-invert prose-sm text-slate-400 whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{ __html: (activity.content || '').replace(/\n/g, '<br/>') }}
+                />
             </div>
         </div>
     );
@@ -1561,7 +1562,7 @@ export const PromoView: React.FC<{ activities: Activity[]; config: SystemConfig;
                                 <div className="p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50">
                                     <h4 className="text-[10px] font-black text-yellow-500 uppercase tracking-[.2em] mb-3">Aturan & Ketentuan</h4>
                                     <div
-                                        className="text-slate-300 text-xs whitespace-pre-wrap leading-relaxed space-y-2"
+                                        className="text-slate-300 text-xs leading-relaxed prose prose-invert prose-sm max-w-none"
                                         dangerouslySetInnerHTML={{ __html: (selectedPromo.content || '').replace(/\n/g, '<br/>') }}
                                     />
                                 </div>

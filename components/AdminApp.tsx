@@ -24,6 +24,7 @@ interface AdminAppProps {
     updateConfig: (cfg: SystemConfig) => void;
     sendMessage: (uid: string, title: string, content: string, amount?: number) => void;
     addActivity: (act: Activity) => void;
+    editActivity: (id: string, updates: Partial<Activity>) => void;
     addTask: (t: Platform) => void;
     editTask: (id: string, updates: Partial<Platform>) => void;
     addAdmin: (a: Admin) => void;
@@ -144,6 +145,7 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
         { text: 'Deposit' }
     ]);
     const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+    const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
 
 
     // Admin Config State
@@ -560,6 +562,20 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
 
     const publishActivity = () => {
         if (!actTitle) return alert("Title is required");
+
+        if (editingActivityId) {
+            props.editActivity(editingActivityId, {
+                title: actTitle,
+                titleColor: actTitleColor,
+                content: actContent,
+                imageUrl: actImage || 'https://via.placeholder.com/400x200',
+            });
+            alert("Activity Updated!");
+            setEditingActivityId(null);
+            setActTitle(''); setActTitleColor('#ffffff'); setActContent(''); setActImage('');
+            return;
+        }
+
         const newAct: Activity = {
             id: 'a_' + Date.now(),
             title: actTitle,
@@ -1456,6 +1472,14 @@ const AdminApp: React.FC<AdminAppProps> = (props) => {
                                 <div key={a.id} className="bg-white p-4 rounded-lg border border-slate-200 flex justify-between items-center">
                                     <div className="flex items-center gap-4"><img src={a.imageUrl || ''} className="w-16 h-10 rounded bg-slate-100 object-cover" /><div><h3 className="font-bold text-slate-800" style={{ color: a.titleColor }}>{a.title}</h3></div></div>
                                     <div className="flex items-center gap-2">
+                                        <button onClick={() => {
+                                            setEditingActivityId(a.id);
+                                            setActTitle(a.title);
+                                            setActTitleColor(a.titleColor || '#ffffff');
+                                            setActContent(a.content || '');
+                                            setActImage(a.imageUrl || '');
+                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        }} className="p-2 rounded-lg text-indigo-600 bg-indigo-50"><Wand2 size={18} /></button>
                                         <button onClick={() => props.manageContent('activity', a.id, 'popup')} className={`p-2 rounded-lg flex items-center gap-1 text-xs font-bold ${a.showPopup ? 'text-purple-600 bg-purple-50' : 'text-slate-400 bg-slate-100'}`}><Image size={14} /> Popup</button>
                                         <button onClick={() => props.manageContent('activity', a.id, 'toggle')} className={`p-2 rounded-lg ${a.active ? 'text-green-600 bg-green-50' : 'text-slate-400 bg-slate-100'}`}><Power size={18} /></button>
                                         <button onClick={() => props.manageContent('activity', a.id, 'delete')} className="p-2 rounded-lg text-red-500 hover:bg-red-50"><Trash2 size={18} /></button>

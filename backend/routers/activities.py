@@ -33,20 +33,24 @@ class ActivityUpdate(BaseModel):
     showPopup: Optional[bool] = None
     targetCountries: Optional[list[str]] = None
 
-def convert_db_activity(a: dict) -> dict:
+def convert_db_activity(a: dict, slim: bool = False) -> dict:
     """将数据库活动数据转换为 API 响应格式"""
-    return {
+    res = {
         "id": a["id"],
         "title": a["title"],
         "titleColor": a.get("title_color"),
         "imageUrl": a.get("image_url"),
-        "content": a.get("content"),
-        "link": a.get("link"),
         "active": a.get("active", True),
-        "isPinned": a.get("is_pinned", False),
-        "showPopup": a.get("show_popup", False),
-        "targetCountries": a.get("target_countries") or ["id"]
+        "showPopup": a.get("show_popup", False)
     }
+    if not slim:
+        res.update({
+            "content": a.get("content"),
+            "link": a.get("link", "#"),
+            "isPinned": a.get("is_pinned", False),
+            "targetCountries": a.get("target_countries") or ["id"]
+        })
+    return res
 
 @router.get("", response_model=List[Activity], response_model_by_alias=True)
 async def get_activities(db: Client = Depends(get_db)):

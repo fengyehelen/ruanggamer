@@ -32,7 +32,7 @@ export const TRANSLATIONS = {
     adminTabs: { users: 'Player', tasks: 'Misi', activities: 'Promo', audit: 'Audit Misi', admins: 'Admin', config: 'Sistem', messages: 'Pesan' },
     sort: 'Urutkan', sortLikes: 'Populer', sortReward: 'Termahal', sortCompleted: 'Terlaris',
     startTask: 'Ambil Misi', steps: 'Cara Main', rules: 'Syarat',
-    uploadPlatform: 'Posting', hot: 'VIRAL', reward: 'Hadiah', remaining: 'Sisa Kuota', activityTitle: 'Event Spesial', play: 'Main',
+    uploadPlatform: 'Posting', hot: 'VIRAL', reward: 'Hadiah', remaining: 'Sisa Kuota', claimed: 'Misi Diambil', activityTitle: 'Event Spesial', play: 'Main',
     wait: 'Tunggu', sent: 'Terkirim', submit: 'Kirim', myTasksTitle: 'Misi Saya', noTasks: 'Belum ada misi diambil', scanQr: 'Scan QR',
     shareCode: 'Kode Reff', shareLink: 'Link Reff', copy: 'Salin', copied: 'Disalin!', messages: 'Kotak Masuk', notifications: 'Notifikasi',
     telegram: 'Grup Mabar', referralRules: 'Komisi 3 Tingkat', referralDesc: 'Ajak teman mabar dan dapatkan komisi seumur hidup dari deposit mereka.',

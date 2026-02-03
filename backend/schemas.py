@@ -277,8 +277,8 @@ class Platform(PlatformBase):
 class ActivityBase(BaseModel):
     title: str
     image_url: str = Field(..., alias="imageUrl")
-    content: str
-    link: str
+    content: Optional[str] = None
+    link: Optional[str] = "#"
 
 
 class Activity(ActivityBase):
@@ -353,7 +353,7 @@ class AuthResponse(BaseModel):
 
 class InitialDataResponse(BaseModel):
     platforms: list[PlatformSlim]
-    activities: list[ActivitySlim]
+    activities: list[Activity]
 
 
 class ConfigItemResponse(BaseModel):

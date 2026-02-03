@@ -523,6 +523,15 @@ const App: React.FC = () => {
                             } catch (e: any) { alert("Add Activity Failed"); }
                         }}
 
+                        editActivity={async (id, updates) => {
+                            try {
+                                await api.updateActivity(id, updates);
+                                const data = await api.getInitialData();
+                                const sortedActivities = (data.activities || []).sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+                                setActivities(sortedActivities);
+                            } catch (e: any) { alert("Update Activity Failed"); }
+                        }}
+
                         manageContent={async (type, id, action) => {
                             try {
                                 if (type === 'task') {

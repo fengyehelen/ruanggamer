@@ -8,28 +8,11 @@ from supabase import Client
 
 from database import get_db
 from schemas import SystemConfig, Activity, InitialDataResponse
+from .activities import convert_db_activity
 
 router = APIRouter(tags=["配置"])
 
 
-def convert_db_activity(a: dict, slim: bool = False) -> dict:
-    """将数据库活动数据转换为 API 响应格式"""
-    res = {
-        "id": a["id"],
-        "title": a["title"],
-        "titleColor": a.get("title_color"),
-        "imageUrl": a["image_url"],
-        "active": a.get("active", True),
-        "showPopup": a.get("show_popup", False)
-    }
-    if not slim:
-        res.update({
-            "content": a["content"],
-            "link": a["link"],
-            "isPinned": a.get("is_pinned", False),
-            "targetCountries": a.get("target_countries") or ["id"]
-        })
-    return res
 
 
 @router.get("/config", response_model=SystemConfig, response_model_by_alias=True)
@@ -150,9 +133,9 @@ async def get_initial_data(db: Client = Depends(get_db)):
             "type": p.get("type", "deposit")
         })
     
-    # 获取活动 (精简版)
-    activities_result = db.table("activities").select("id, title, title_color, image_url, active, show_popup").eq("active", True).execute()
-    activities = [convert_db_activity(a, slim=True) for a in (activities_result.data or [])]
+    # 获取活动 (包含 content 字段以便前端展示详情)
+    activities_result = db.table("activities").select("*").eq("active", True).execute()
+    activities = [convert_db_activity(a, slim=False) for a in (activities_result.data or [])]
     
     return {
         "platforms": platforms,
