@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # CORS 配置
     cors_origins: str = "*"
     
+    # Facebook CAPI 配置
+    fb_access_token: str = ""
+    fb_pixel_id: str = ""
+    fb_test_event_code: str = "" # 仅用于测试，正式环境留空
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
