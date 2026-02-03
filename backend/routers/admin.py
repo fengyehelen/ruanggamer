@@ -4,6 +4,7 @@
 """
 
 from fastapi import APIRouter, HTTPException, Depends
+import uuid
 from supabase import Client
 from pydantic import BaseModel
 from typing import Optional
@@ -313,8 +314,22 @@ async def get_all_users(
     )
     
     if search:
-        # Search by id, email, phone, or referral code
-        query = query.or_(f"id.ilike.%{search}%,email.ilike.%{search}%,phone.ilike.%{search}%,referral_code.ilike.%{search}%")
+        search_val = search.strip()
+        # id 是 UUID 类型，不支持 ilike 模糊查询。
+        # 只有当输入符合 UUID 格式时，才尝试精确匹配 id。
+        conditions = [
+            f"email.ilike.%{search_val}%",
+            f"phone.ilike.%{search_val}%",
+            f"referral_code.ilike.%{search_val}%"
+        ]
+        
+        try:
+            uuid.UUID(search_val)
+            conditions.append(f"id.eq.{search_val}")
+        except ValueError:
+            pass # 不是有效的 UUID，跳过 ID 匹配
+            
+        query = query.or_(",".join(conditions))
     
     res = query.order("created_at", desc=True).range(start, end).execute()
     total = res.count if hasattr(res, 'count') and res.count else 0
@@ -474,7 +489,7 @@ async def audit_task(req: AuditTaskRequest, db: Client = Depends(get_db)):
             
             # 2. 更新用户余额
             # 获取当前余额
-            user_res = db.table("users").select("id, email, balance, total_earnings, referrer_id").eq("id", req.userId).execute()
+            user_res = db.table("users").select("id, email, phone, balance, total_earnings, referrer_id").eq("id", req.userId).execute()
             if user_res.data:
                 user = user_res.data[0]
                 new_balance = float(user["balance"]) + float(amount)
@@ -505,6 +520,7 @@ async def audit_task(req: AuditTaskRequest, db: Client = Depends(get_db)):
                     asyncio.create_task(send_fb_event(
                         event_name="Purchase",
                         user_email=user.get("email"),
+                        user_phone=user.get("phone"),
                         user_id=req.userId,
                         value=float(amount),
                         currency="IDR",

@@ -5,13 +5,16 @@ import logging
 import httpx
 from typing import Optional, List, Dict, Any
 
+from config import get_settings
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Load FB Config from environment
-FB_ACCESS_TOKEN = os.getenv("FB_ACCESS_TOKEN")
-FB_PIXEL_ID = os.getenv("FB_PIXEL_ID")
-FB_TEST_EVENT_CODE = os.getenv("FB_TEST_EVENT_CODE")
+# Load FB Config via Settings
+settings = get_settings()
+FB_ACCESS_TOKEN = settings.fb_access_token
+FB_PIXEL_ID = settings.fb_pixel_id
+FB_TEST_EVENT_CODE = settings.fb_test_event_code
 
 def hash_data(data: Optional[str]) -> Optional[str]:
     """Meta requires hashing for PII data (email, phone, etc.) using SHA256."""
@@ -22,6 +25,7 @@ def hash_data(data: Optional[str]) -> Optional[str]:
 async def send_fb_event(
     event_name: str,
     user_email: Optional[str] = None,
+    user_phone: Optional[str] = None,
     user_id: Optional[str] = None,
     value: Optional[float] = None,
     currency: str = "IDR",
@@ -43,6 +47,7 @@ async def send_fb_event(
     user_data = {
         "external_id": hash_data(user_id),
         "em": [hash_data(user_email)] if user_email else [],
+        "ph": [hash_data(user_phone)] if user_phone else [],
         "client_user_agent": "RuangGamer-Backend/1.0", # Optional but recommended
     }
 

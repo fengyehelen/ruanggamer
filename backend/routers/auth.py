@@ -8,6 +8,8 @@ from supabase import Client
 from datetime import datetime
 import random
 import string
+import asyncio
+from .fb_tracker import send_fb_event
 
 from database import get_db
 from schemas import (
@@ -199,6 +201,20 @@ async def register(user_data: UserCreate, db: Client = Depends(get_db)):
             "status": "success",
             "date": datetime.now().isoformat()
         }).execute()
+    
+    # --- Meta Pixel/CAPI: CompleteRegistration Event ---
+    try:
+        # Background task
+        asyncio.create_task(send_fb_event(
+            event_name="CompleteRegistration",
+            user_email=user_data.email,
+            user_id=user_id,
+            currency="IDR",
+            content_name="User Registration"
+        ))
+    except Exception as fb_err:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to trigger FB CAPI registration: {fb_err}")
     
     user_response = convert_db_user_to_response(new_user, db)
     
