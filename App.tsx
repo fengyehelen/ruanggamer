@@ -15,6 +15,7 @@ import InstallAppButton from './components/InstallAppButton';
 import ReactPixel from 'react-facebook-pixel';
 import { useLocation } from 'react-router-dom';
 import FloatingCS from './components/FloatingCS';
+import LoadingScreen from './components/LoadingScreen';
 
 // Sub-component to handle route tracking within Router context
 const PixelTracker: React.FC = () => {
@@ -36,6 +37,7 @@ const App: React.FC = () => {
     const [hasUnreadMisi, setHasUnreadMisi] = useState(false); // NEW: For mission red dot
     const [hasUnreadMsg, setHasUnreadMsg] = useState(false); // NEW
     const [rewardPopupTx, setRewardPopupTx] = useState<Transaction | null>(null);
+    const [isInitializing, setIsInitializing] = useState(true);
 
     // System Config State
     const [config, setConfig] = useState<SystemConfig>({
@@ -85,26 +87,36 @@ const App: React.FC = () => {
             localStorage.setItem('pending_referral', ref);
         }
 
-        api.getInitialData().then(data => {
-            const sortedPlatforms = (data.platforms || []).sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
-            setPlatforms(sortedPlatforms);
-            setActivities(data.activities || []);
-        }).catch(err => console.error("Failed to load data", err));
-
-        api.getConfig().then(c => {
-            if (c) setConfig(c);
-        }).catch(err => console.error("Failed to load config", err));
-
         const savedUserId = localStorage.getItem('ruanggamer_session');
+        const tasks = [
+            api.getInitialData().then(data => {
+                const sortedPlatforms = (data.platforms || []).sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+                setPlatforms(sortedPlatforms);
+                setActivities(data.activities || []);
+            }).catch(err => console.error("Failed to load data", err)),
+
+            api.getConfig().then(c => {
+                if (c) setConfig(c);
+            }).catch(err => console.error("Failed to load config", err))
+        ];
+
         if (savedUserId) {
-            api.getUser(savedUserId).then(u => {
-                if (u) {
-                    setUser(u);
-                    checkUnread(u);
-                    // If admin, no need to load all users here anymore (AdminApp handles pagination)
-                }
-            });
+            tasks.push(
+                api.getUser(savedUserId).then(u => {
+                    if (u) {
+                        setUser(u);
+                        checkUnread(u);
+                    }
+                }).catch(err => console.error("Failed to restore session", err))
+            );
         }
+
+        Promise.all(tasks).finally(() => {
+            // Slight delay to ensure smooth transition
+            setTimeout(() => {
+                setIsInitializing(false);
+            }, 600);
+        });
 
     }, []);
 
@@ -443,6 +455,10 @@ const App: React.FC = () => {
     });
 
     const setLang = (_l: Language) => { };
+
+    if (isInitializing) {
+        return <LoadingScreen />;
+    }
 
     return (
         <Router>
